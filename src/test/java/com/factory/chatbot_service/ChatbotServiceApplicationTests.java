@@ -1,4 +1,4 @@
-package com.example.chatbot_service;
+package com.factory.chatbot_service;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
