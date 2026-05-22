@@ -8,8 +8,6 @@ import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 
 @Configuration
 public class BedrockConfig {
-
-    // 별도 클래스 대신 yaml 설정값을 직접 주입받습니다. (기본값: 서울 리전)
     @Value("${chatbot.aws.region}")
     private String region;
 
