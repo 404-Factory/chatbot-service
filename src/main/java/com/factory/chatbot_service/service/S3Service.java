@@ -4,6 +4,7 @@ package com.factory.chatbot_service.service;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Service;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
 import software.amazon.awssdk.services.s3.model.ExpressionType;
@@ -18,8 +19,11 @@ import software.amazon.awssdk.services.s3.model.SelectObjectContentResponseHandl
 @Service
 public class S3Service {
     private final S3Client s3Client;
-    public S3Service(S3Client s3Client) {
+    private final S3AsyncClient s3AsyncClient;
+
+    public S3Service(S3Client s3Client, S3AsyncClient s3AsyncClient) {
         this.s3Client = s3Client;
+        this.s3AsyncClient = s3AsyncClient;
     }
 
     /**
@@ -31,11 +35,11 @@ public class S3Service {
         System.out.println("[DEBUG] prefix : " + prefix);
 
         try {
-            // 해당 경로 하위의 파일 목록 조회
+            // 1. 해당 경로 하위의 파일 목록 조회 (동기 클라이언트 사용 가능)
             ListObjectsV2Request listRequest = ListObjectsV2Request.builder()
                 .bucket(bucketName)
                 .prefix(prefix)
-                .maxKeys(1) // 가장 첫 번째 파일 1개만 매핑
+                .maxKeys(1)
                 .build();
 
             ListObjectsV2Response listResponse = s3Client.listObjectsV2(listRequest);
@@ -44,50 +48,54 @@ public class S3Service {
                 return "<error>지정한 경로에 파일이 존재하지 않습니다.</error>";
             }
 
-            // 난수(UUID)가 포함된 실제 Parquet 파일의 풀 키(Key) 획득
             String actualKey = listResponse.contents().get(0).key();
-            System.out.println("[S3 데이터 읽기] 대상 파일 확정: " + actualKey);
+            System.out.println("[DEBUG] File directory : " + actualKey);
 
-            // 2. S3 Select 요청 구성 (Parquet -> JSON 변환 연산 위임)
+            // S3 Select 요청 구성 (v2 규격에 맞춘 올바른 모델 클래스 사용)
             SelectObjectContentRequest selectRequest = SelectObjectContentRequest.builder()
                 .bucket(bucketName)
                 .key(actualKey)
-                .expression("SELECT * FROM S3Object") // 전체 데이터 조회 SQL
+                .expression("SELECT * FROM S3Object")
                 .expressionType(ExpressionType.SQL)
                 .inputSerialization(InputSerialization.builder()
-                    .parquet(ParquetInputSerialization.builder().build()) // 입력: Parquet
+                    .parquet(ParquetInput.builder().build()) // ParquetInput 사용
                     .build())
                 .outputSerialization(OutputSerialization.builder()
-                    .json(JsonOutputSerialization.builder().build()) // 출력: JSON
+                    .json(JSONOutput.builder().build()) // JSONOutput 사용
                     .build())
                 .build();
 
-            // 3. 데이터 스트림 스트리밍 처리 및 결합
+            // 데이터 스트림 스트리밍 처리 (Visitor 구조 적용)
             List<String> jsonRecords = new ArrayList<>();
 
-            s3Client.selectObjectContent(selectRequest, SelectObjectContentResponseHandler.builder()
-                .onRecords(event -> {
-                    // S3가 파싱해서 보내준 JSON 행 바이트 배열을 String으로 변환
-                    String payload = event.payload().asUtf8String();
+            // 전용 Visitor 빌더를 사용해 Records 이벤트를 가로챕니다.
+            SelectObjectContentResponseHandler.Visitor visitor = SelectObjectContentResponseHandler.Visitor.builder()
+                .onRecords(r -> {
+                    // r.payload()가 정상 작동하며 바이트 스트림을 UTF-8 문자열로 변환합니다.
+                    String payload = r.payload().asUtf8String();
                     jsonRecords.add(payload);
                 })
-                .build());
+                .build();
+
+            SelectObjectContentResponseHandler handler = SelectObjectContentResponseHandler.builder()
+                .subscriber(visitor) // 빌드된 비지터를 구독자로 등록
+                .build();
+
+            // S3AsyncClient를 사용하여 S3 Select 연산을 수행하고 .join()으로 대기합니다.
+            s3AsyncClient.selectObjectContent(selectRequest, handler).join();
 
             // 조회된 결괏값 결합
             String resultJson = String.join("\n", jsonRecords);
 
-            System.out.println("[S3 데이터 읽기 성공] 데이터 추출 완료");
+            System.out.println("[DEBUG] S3 데이터 추출 완료");
             return resultJson;
 
         } catch (Exception e) {
-            System.err.println("[S3 데이터 읽기 실패] 에러 발생: " + e.getMessage());
+            System.err.println("[DEBUG] S3 데이터 읽기 실패: " + e.getMessage());
             e.printStackTrace();
             return "<error>S3 데이터를 읽는 중 문제가 발생했습니다: " + e.getMessage() + "</error>";
         }
     }
-
-
-
 
 
     /**
@@ -118,5 +126,55 @@ public class S3Service {
             e.printStackTrace();
         }
     }
+
+
+
+    /**
+     * 특정 폴더(Prefix) 내의 일반 Raw JSON 파일을 찾아 내용을 문자열로 읽어옵니다.
+     */
+    public String readRawJson(String bucketName, String prefix) {
+        System.out.println("S3Service : readRawJson() called");
+        System.out.println("bucketName : " + bucketName);
+        System.out.println("prefix : " + prefix);
+
+        try {
+            // 1. 해당 경로 하위의 Raw JSON 파일 목록 조회
+            ListObjectsV2Request listRequest = ListObjectsV2Request.builder()
+                .bucket(bucketName)
+                .prefix(prefix)
+                .maxKeys(1) // 테스트를 위해 우선 가장 첫 번째 파일 1개만 지정
+                .build();
+
+            ListObjectsV2Response listResponse = s3Client.listObjectsV2(listRequest);
+
+            if (listResponse.contents().isEmpty()) {
+                return "<error>지정한 경로에 Raw JSON 파일이 존재하지 않습니다.</error>";
+            }
+
+            // 87개 파일 중 첫 번째 파일의 정확한 S3 Key(경로+파일명) 획득
+            String actualKey = listResponse.contents().get(0).key();
+            System.out.println("[DEBUG] S3 Raw data file : " + actualKey);
+
+            // 2. S3 Object를 바이트 배열로 직접 다운로드 (순수 텍스트/JSON이므로 바로 읽기 가능)
+            software.amazon.awssdk.core.BytesWrapper objectBytes = s3Client.getObjectAsBytes(
+                software.amazon.awssdk.services.s3.model.GetObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(actualKey)
+                    .build()
+            );
+
+            // 3. 바이트 데이터를 UTF-8 문자열(JSON 텍스트)로 변환
+            String jsonContent = objectBytes.asUtf8String();
+
+            System.out.println("[DEBUG] DATA Size : " + objectBytes.asByteArray().length + " bytes");
+            return jsonContent;
+
+        } catch (Exception e) {
+            System.err.println("[DEBUG] DATA Read fail ERROR : " + e.getMessage());
+            e.printStackTrace();
+            return "<error>Raw JSON 데이터를 읽는 중 문제가 발생했습니다: " + e.getMessage() + "</error>";
+        }
+    }
+
 
 }
