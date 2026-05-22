@@ -16,6 +16,8 @@ import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.SelectObjectContentRequest;
 import software.amazon.awssdk.services.s3.model.SelectObjectContentResponseHandler;
 
+
+
 @Service
 public class S3Service {
     private final S3Client s3Client;
@@ -133,16 +135,12 @@ public class S3Service {
      * 특정 폴더(Prefix) 내의 일반 Raw JSON 파일을 찾아 내용을 문자열로 읽어옵니다.
      */
     public String readRawJson(String bucketName, String prefix) {
-        System.out.println("S3Service : readRawJson() called");
-        System.out.println("bucketName : " + bucketName);
-        System.out.println("prefix : " + prefix);
-
         try {
-            // 1. 해당 경로 하위의 Raw JSON 파일 목록 조회
+            // 1. 해당 경로 하위의 모든 파일 목록 조회 (.maxKeys(1) 제거)
             ListObjectsV2Request listRequest = ListObjectsV2Request.builder()
                 .bucket(bucketName)
                 .prefix(prefix)
-                .maxKeys(1) // 테스트를 위해 우선 가장 첫 번째 파일 1개만 지정
+                // maxKeys 지정을 생략하거나 크게 잡아서 그날 쌓인 파일 목록을 다 가져옵니다 (기본 최대 1,000개)
                 .build();
 
             ListObjectsV2Response listResponse = s3Client.listObjectsV2(listRequest);
@@ -151,11 +149,17 @@ public class S3Service {
                 return "<error>지정한 경로에 Raw JSON 파일이 존재하지 않습니다.</error>";
             }
 
-            // 87개 파일 중 첫 번째 파일의 정확한 S3 Key(경로+파일명) 획득
-            String actualKey = listResponse.contents().get(0).key();
-            System.out.println("[DEBUG] S3 Raw data file : " + actualKey);
+            // 2. [핵심] 리스트 안에서 최종 수정 시간(LastModified)이 가장 늦은 '최신 파일'을 찾아냅니다.
+            software.amazon.awssdk.services.s3.model.S3Object latestObject = listResponse.contents().stream()
+                .max(java.util.Comparator.comparing(software.amazon.awssdk.services.s3.model.S3Object::lastModified))
+                .orElseThrow();
 
-            // 2. S3 Object를 바이트 배열로 직접 다운로드 (순수 텍스트/JSON이므로 바로 읽기 가능)
+            // 가장 하단에 있던 최신 파일의 풀 키(Key) 획득
+            String actualKey = latestObject.key();
+            System.out.println("[S3 Raw 읽기] 최신 파일 확정: " + actualKey);
+            System.out.println(" - 파일 수정 시각: " + latestObject.lastModified());
+
+            // 3. 확정된 최신 파일 객체를 바이트 배열로 다운로드
             software.amazon.awssdk.core.BytesWrapper objectBytes = s3Client.getObjectAsBytes(
                 software.amazon.awssdk.services.s3.model.GetObjectRequest.builder()
                     .bucket(bucketName)
@@ -163,14 +167,11 @@ public class S3Service {
                     .build()
             );
 
-            // 3. 바이트 데이터를 UTF-8 문자열(JSON 텍스트)로 변환
-            String jsonContent = objectBytes.asUtf8String();
-
-            System.out.println("[DEBUG] DATA Size : " + objectBytes.asByteArray().length + " bytes");
-            return jsonContent;
+            // 4. 바이트 데이터를 UTF-8 문자열(JSON 텍스트)로 변환하여 리턴
+            return objectBytes.asUtf8String();
 
         } catch (Exception e) {
-            System.err.println("[DEBUG] DATA Read fail ERROR : " + e.getMessage());
+            System.err.println("[S3 Raw 읽기 실패] 에러 발생: " + e.getMessage());
             e.printStackTrace();
             return "<error>Raw JSON 데이터를 읽는 중 문제가 발생했습니다: " + e.getMessage() + "</error>";
         }
