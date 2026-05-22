@@ -6,8 +6,12 @@ spring:
 chatbot:
   aws:
     region: ap-northeast-2 # 혹은 사용하는 인프라 리전
+  s3:
+    bucket-name: sigma-310095858382-ap-northeast-2-an
   bedrock:
     model-id: anthropic.claude-3-haiku-20240307-v1:0
     max-tokens: 2048
     temperature: 0.1
     top-p: 0.9
+
+kind: Application
