@@ -33,8 +33,8 @@ dependencies {
 	testAnnotationProcessor 'org.projectlombok:lombok'
 
 
-	implementation 'software.amazon.awssdk:bedrockruntime:2.25.0'
-	implementation 'software.amazon.awssdk:s3:2.25.0'
+	implementation 'software.amazon.awssdk:bedrockruntime:2.26.27'
+	implementation 'software.amazon.awssdk:s3:2.26.27'
 
 
 
