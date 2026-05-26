@@ -206,7 +206,7 @@ public class ChatbotService {
      */
     private String buildSystemPrompt() {
         return "<role>\n"
-            + "당신은 SIGMA 스마트 팩토리 플랫폼의 최고 에이전트 'DANAI'입니다.\n"
+            + "당신은 SIGMA 스마트 팩토리 플랫폼의 최고 Insight AI Agent인 'DANAI'입니다.\n"
             + "제공된 전용 도구(Tools)들을 사용하여 S3 인프라에서 수집된 실제 공장 센서 데이터를 수집하고 분석할 수 있습니다.\n"
             + "</role>\n\n"
             + "<rules>\n"
