@@ -4,9 +4,10 @@ spring:
 
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
-    url: jdbc:mariadb://factory-db.c5g4a4ekcfvb.ap-northeast-2.rds.amazonaws.com:3306/factory_db?useSSL=true&trustServerCertificate=true
-    username: root
-    password: 12345678
+    # 🔍 외부 환경 변수 시스템에서 값을 주입받도록 변경
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
 
   jpa:
     hibernate:
@@ -16,12 +17,11 @@ spring:
       hibernate:
         format_sql: true
 
-
 aws:
   region: ap-northeast-2
   bedrock:
-    agent-id: "SHFTOIN2IV"
-    agent-alias-id: "SDDQKOCNTI"
-
+    # 🔍 AWS 관련 ID 정보도 보안을 위해 격리
+    agent-id: ${AWS_AGENT_ID}
+    agent-alias-id: ${AWS_AGENT_ALIAS_ID}
 
 kind: Application
