@@ -32,8 +32,9 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testAnnotationProcessor 'org.projectlombok:lombok'
 
-	
+
 	implementation 'software.amazon.awssdk:bedrockagentruntime'
+	implementation 'me.paulschwarz:spring-dotenv:4.0.0'
 
 	// AWS SDK BOM (버전 관리용)
 	implementation platform('software.amazon.awssdk:bom:2.25.0')
