@@ -17,7 +17,7 @@ public class ChatbotController {
 
     @PostMapping("/insight")
     public ResponseEntity<Map<String, String>> queryInsightAI(@RequestBody Map<String, Object> request) {
-        int equipmentId = (int) request.get("equipmentId");
+        Integer equipmentId = (Integer) request.get("equipmentId");
         String userQuestion = (String) request.get("content");
 
         String aiResponse = mainInsightService.getEquipmentAnalysis(equipmentId, userQuestion);
