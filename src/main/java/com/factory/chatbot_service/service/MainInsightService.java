@@ -1,10 +1,14 @@
 package com.factory.chatbot_service.service;
 
-import com.factory.chatbot_service.dto.AnomalyLogDTO;
 import com.factory.chatbot_service.entity.AnomalyLog;
+import com.factory.chatbot_service.entity.ChatRoom;
+import com.factory.chatbot_service.entity.ChatMessage;
 import com.factory.chatbot_service.repository.AnomalyLogRepository;
+import com.factory.chatbot_service.repository.ChatRoomRepository; // 주입
+import com.factory.chatbot_service.repository.ChatMessageRepository; // 주입
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -13,46 +17,77 @@ public class MainInsightService {
 
     private final BedrockAgentService bedrockAgentService;
     private final AnomalyLogRepository anomalyLogRepository;
+    private final ChatRoomRepository chatRoomRepository;
+    private final ChatMessageRepository chatMessageRepository;
 
-    public String getEquipmentAnalysis(Integer equipmentId, String userQuestion) {
-        System.out.println("[DEBUG] MainInsightService(getEquipmentAnalysis)");
+    public String getEquipmentAnalysis(Integer equipmentId, String userQuestion, String roomId) {
+        System.out.println("[DEBUG] MainInsightService - getEquipmentAnalysis called");
         System.out.println("[DEBUG] equipmentId: " + equipmentId);
         System.out.println("[DEBUG] userQuestion: " + userQuestion);
+        System.out.println("[DEBUG] roomId: " + roomId);
 
+        // 🔍 [JPA 영속화 1] 해당 방이 DB에 아직 없다면 첫 질문이므로 방부터 개설 (Lazy DB Creation)
+        if (roomId != null && !chatRoomRepository.existsById(roomId)) {
+            ChatRoom room = new ChatRoom();
+            room.setRoomId(roomId);
+            // 첫 질문이 너무 길면 타이틀이 깨지므로 12자 자르기 규칙 반영
+            String title = userQuestion.length() > 12 ? userQuestion.substring(0, 12) + "..." : userQuestion;
+            room.setTitle(title);
+            room.setCreatedAt(LocalDateTime.now());
+            chatRoomRepository.save(room);
+        }
+
+        // 🔍 [JPA 영속화 2] 유저가 던진 진짜 질문을 대화 기록 테이블에 세이브
+        if (roomId != null) {
+            ChatMessage userMsg = new ChatMessage();
+            userMsg.setRoomId(roomId);
+            userMsg.setRole("USER");
+            userMsg.setContent(userQuestion);
+            userMsg.setCreatedAt(LocalDateTime.now());
+            chatMessageRepository.save(userMsg);
+        }
+
+        // 3. 기존 AI 프롬프트 조립 및 Bedrock 호출 로직
+        String aiResponse;
         if (equipmentId == null) {
-            return bedrockAgentService.askInsightAI(userQuestion);
+            aiResponse = bedrockAgentService.askInsightAI(userQuestion, roomId); // 🔍 roomId 추가
+        } else {
+            List<AnomalyLog> logs = anomalyLogRepository.findTop5ByEquipmentIdOrderByOccurredTimeDesc(equipmentId);
+            StringBuilder promptBuilder = new StringBuilder();
+            promptBuilder.append("다음은 가동 중인 설비에서 발생한 실제 RDBMS 로그 데이터입니다.\n\n");
+            for (AnomalyLog log : logs) {
+                promptBuilder.append(String.format("- 로그 ID: %d | 점검 항목: %s | 탐지된 룰: %s | 심각도: %s\n",
+                    log.getLogId(), log.getRecipeParameter(), log.getRuleName(), log.getSeverity()));
+            }
+            promptBuilder.append("\n[엔지니어의 추가 질문]\n").append(userQuestion);
+            aiResponse = bedrockAgentService.askInsightAI(promptBuilder.toString(), roomId);
         }
 
-        List<AnomalyLog> logs = anomalyLogRepository.findTop5ByEquipmentIdOrderByOccurredTimeDesc(equipmentId);
-
-        String targetEquipmentCode = getEquipmentCodeName(equipmentId);
-
-        StringBuilder promptBuilder = new StringBuilder();
-        promptBuilder.append("다음은 가동 중인 설비에서 발생한 실제 RDBMS 로그 데이터입니다.\n\n");
-        promptBuilder.append(String.format("[대상 설비 식별정보] RDBMS ID: %d | 물리 장비 코드: %s\n\n", equipmentId, targetEquipmentCode));
-
-        for (AnomalyLog log : logs) {
-            promptBuilder.append(String.format(
-                "- 로그 ID: %d | 점검 항목: %s | 탐지된 룰: %s | 심각도: %s | 발생 시각: %s\n",
-                log.getLogId(), log.getRecipeParameter(), log.getRuleName(), log.getSeverity(), log.getOccurredTime()
-            ));
+        // 🔍 [JPA 영속화 3] Bedrock이 최종 대답한 완성형 리포트를 방 번호에 매핑하여 세이브
+        if (roomId != null) {
+            ChatMessage aiMsg = new ChatMessage();
+            aiMsg.setRoomId(roomId);
+            aiMsg.setRole("ASSISTANT");
+            aiMsg.setContent(aiResponse);
+            aiMsg.setCreatedAt(LocalDateTime.now());
+            chatMessageRepository.save(aiMsg);
         }
 
-        promptBuilder.append("\n[엔지니어의 추가 질문]\n").append(userQuestion);
-        promptBuilder.append("\n위의 팩트 데이터와 네가 가진 Knowledge Base 문서를 대조하여 가이드라인에 맞춰 분석 보고서를 반환해줘.");
-
-        return bedrockAgentService.askInsightAI(promptBuilder.toString());
+        System.out.println("[DEBUG] ai Response: " + aiResponse);
+        return aiResponse;
     }
 
+    // MainInsightService 클래스 내부에 아래 두 메서드를 추가해 주세요.
 
-    private String getEquipmentCodeName(int id) {
-        return switch (id) {
-            case 1 -> "EQP-DEPOSITION-001"; case 2 -> "EQP-DEPOSITION-002";
-            case 3 -> "EQP-PHOTO-001";      case 4 -> "EQP-PHOTO-002";
-            case 5 -> "EQP-PHOTO-003";      case 6 -> "EQP-PHOTO-004";
-            case 7 -> "EQP-ETCH-001";       case 8 -> "EQP-ETCH-002";
-            case 9 -> "EQP-CLEANING-001";   case 10 -> "EQP-CLEANING-002";
-            default -> "UNKNOWN-EQP";
-        };
+    public List<ChatRoom> getAllRooms() {
+        return chatRoomRepository.findAllByOrderByCreatedAtDesc();
+    }
+
+    public List<ChatMessage> getRoomMessages(String roomId) {
+        return chatMessageRepository.findByRoomIdOrderByCreatedAtAsc(roomId);
+    }
+
+    public void deleteRoom(String roomId) {
+        chatRoomRepository.deleteById(roomId);
     }
 }
