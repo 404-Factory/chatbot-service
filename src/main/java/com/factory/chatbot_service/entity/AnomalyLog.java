@@ -29,4 +29,13 @@ public class AnomalyLog {
 
     @Column(name = "occurred_time")
     private LocalDateTime occurredTime;
+
+    @Column(name = "detection_reason")
+    private String detectionReason;
+
+    @Column(name = "anomaly_type")
+    private String anomalyType;
+
+    @Column(name = "cause_rule")
+    private Integer causeRule;
 }

@@ -33,11 +33,8 @@ dependencies {
 	testAnnotationProcessor 'org.projectlombok:lombok'
 
 
-	implementation 'software.amazon.awssdk:bedrockagentruntime'
+	implementation 'software.amazon.awssdk:bedrockagentruntime:2.25.0'
 	implementation 'me.paulschwarz:spring-dotenv:4.0.0'
-
-	// AWS SDK BOM (버전 관리용)
-	implementation platform('software.amazon.awssdk:bom:2.25.0')
 
 
 

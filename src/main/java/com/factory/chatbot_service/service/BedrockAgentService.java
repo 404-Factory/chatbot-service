@@ -1,3 +1,4 @@
+// ANTIGRAVITY_INTELLIJ_CONNECTION_TEST: SUCCESS
 package com.factory.chatbot_service.service;
 
 import java.util.concurrent.CompletableFuture;
@@ -8,8 +9,6 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.bedrockagentruntime.BedrockAgentRuntimeAsyncClient;
 import software.amazon.awssdk.services.bedrockagentruntime.model.InvokeAgentRequest;
 import software.amazon.awssdk.services.bedrockagentruntime.model.InvokeAgentResponseHandler;
-
-import java.util.UUID;
 
 @Service
 public class BedrockAgentService {
@@ -28,16 +27,8 @@ public class BedrockAgentService {
             .build();
     }
 
-
-
-
-
-    // 🔍 인자에 roomId를 추가합니다.
     public String askInsightAI(String userPrompt, String roomId) {
         System.out.println("[DEBUG] BedrockAgentService(askInsightAI) - user prompt : " +  userPrompt);
-
-        // ❌ 기존의 랜덤 UUID 생성을 과감히 제거합니다.
-        // String sessionId = UUID.randomUUID().toString();
 
         InvokeAgentRequest request = InvokeAgentRequest.builder()
             .agentId(agentId)
@@ -46,7 +37,6 @@ public class BedrockAgentService {
             .inputText(userPrompt)
             .enableTrace(true)
             .build();
-
 
         System.out.println("[DEBUG] BedrockAgentService(askInsightAI) - request : " + request);
 
@@ -70,7 +60,6 @@ public class BedrockAgentService {
                             (software.amazon.awssdk.services.bedrockagentruntime.model.TracePart) event;
 
                         if (tracePart.trace() != null) {
-                            // 💡 에이전트가 단 한 조각의 사고 과정이라도 뱉으면 콘솔에 강제로 보라색 스트림을 쏩니다.
                             System.out.println("\n\u001B[35m[AWS BEDROCK RAW TRACE STREAM]\u001B[0m " + tracePart.trace().toString());
                             System.out.println("====================================================================\n");
                         }
@@ -82,9 +71,38 @@ public class BedrockAgentService {
                 .build());
 
             future.join();
-            return finalResponse.toString();
+            return cleanResponse(finalResponse.toString());
         } catch (Exception e) {
             return "Bedrock 호출 실패: " + e.getMessage();
         }
+    }
+
+    private String cleanResponse(String response) {
+        if (response == null) return "";
+        
+        // If it's a normal report containing the data timestamp, keep it as-is
+        if (response.contains("데이터 기준 시각:")) {
+            return response.trim();
+        }
+        
+        // Extract clean clarification questions if present
+        if (response.contains("어떤 설비 번호의 조회를 원하시나요?")) {
+            return "어떤 설비 번호의 조회를 원하시나요?";
+        }
+        if (response.contains("조회를 원하는 특정 날짜가 있으신가요?")) {
+            return "조회를 원하는 특정 날짜가 있으신가요?";
+        }
+        if (response.contains("어떤 분석을 원하시나요")) {
+            int start = response.indexOf("[");
+            if (start != -1 && start < response.indexOf("어떤 분석을 원하시나요")) {
+                return response.substring(start).trim();
+            }
+            start = response.indexOf("데이터 조회를 요청하셨습니다");
+            if (start != -1) {
+                return response.substring(start).trim();
+            }
+        }
+        
+        return response.trim();
     }
 }

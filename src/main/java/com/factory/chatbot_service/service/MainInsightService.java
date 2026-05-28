@@ -10,6 +10,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
+import com.factory.chatbot_service.entity.DefectInfo;
+import com.factory.chatbot_service.entity.EquipmentInfo;
+import com.factory.chatbot_service.repository.DefectInfoRepository;
+import com.factory.chatbot_service.repository.EquipmentInfoRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -19,6 +24,8 @@ public class MainInsightService {
     private final AnomalyLogRepository anomalyLogRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMessageRepository chatMessageRepository;
+    private final DefectInfoRepository defectInfoRepository;
+    private final EquipmentInfoRepository equipmentInfoRepository;
 
     public String getEquipmentAnalysis(Integer equipmentId, String userQuestion, String roomId) {
         System.out.println("[DEBUG] MainInsightService - getEquipmentAnalysis called");
@@ -53,12 +60,30 @@ public class MainInsightService {
             aiResponse = bedrockAgentService.askInsightAI(userQuestion, roomId); // 🔍 roomId 추가
         } else {
             List<AnomalyLog> logs = anomalyLogRepository.findTop5ByEquipmentIdOrderByOccurredTimeDesc(equipmentId);
+            
             StringBuilder promptBuilder = new StringBuilder();
-            promptBuilder.append("다음은 가동 중인 설비에서 발생한 실제 RDBMS 로그 데이터입니다.\n\n");
+            promptBuilder.append("다음은 가동 중인 설비에서 발생한 실제 RDBMS 데이터입니다.\n\n");
+            promptBuilder.append("[이상 로그 데이터]\n");
             for (AnomalyLog log : logs) {
                 promptBuilder.append(String.format("- 로그 ID: %d | 점검 항목: %s | 탐지된 룰: %s | 심각도: %s\n",
                     log.getLogId(), log.getRecipeParameter(), log.getRuleName(), log.getSeverity()));
             }
+
+            Optional<EquipmentInfo> eqInfoOpt = equipmentInfoRepository.findById(equipmentId.longValue());
+            if (eqInfoOpt.isPresent()) {
+                EquipmentInfo eqInfo = eqInfoOpt.get();
+                List<DefectInfo> defects = defectInfoRepository.findByCauseEquipmentIdOrderByOccurredTimeDesc(eqInfo.getEquipmentId());
+                if (!defects.isEmpty()) {
+                    promptBuilder.append("\n[불량 현황 데이터]\n");
+                    int count = 0;
+                    for (DefectInfo defect : defects) {
+                        if (count++ >= 5) break; // 최근 5개만
+                        promptBuilder.append(String.format("- 불량 타입: %s | 원인 공정: %s | 발생 시각: %s\n",
+                            defect.getDefectType(), defect.getCauseProcessName(), defect.getOccurredTime()));
+                    }
+                }
+            }
+
             promptBuilder.append("\n[엔지니어의 추가 질문]\n").append(userQuestion);
             aiResponse = bedrockAgentService.askInsightAI(promptBuilder.toString(), roomId);
         }
