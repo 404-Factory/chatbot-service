@@ -41,17 +41,131 @@ graph TD
 
 ---
 
-## ☁️ 2. S3 데이터 레이어 연동 규격 (실시간 센서 로그)
+## 🧠 2. AWS Bedrock Agent (DANAI) 프롬프트 및 의사결정 로직
+
+인공지능 진단 에이전트 **DANAI**의 역할정의, 프롬프트 인스트럭션(Prompt Instructions), 의사결정 규칙입니다. 에이전트는 이 가이드를 기반으로 스스로 판단하여 백엔드 도구(Lambda)를 호출합니다.
+
+### 2.1 에이전트 역할 정의 (Role)
+- **명칭**: 최고 진단 에이전트 'DANAI'
+- **역할**: 스마트 팩토리 플랫폼의 공정 이상 로그와 불량 데이터를 비교 분석하여 실시간 장비 상태를 객관적이고 논리적으로 진단하는 AI 엔지니어.
+
+### 2.2 핵심 프롬프트 인스트럭션 규칙 (Prompt Instructions)
+1. **설비 ID 및 날짜 확인 강제 규칙 (Strict Validation)**
+   - 사용자가 질문에서 공정명(예: 포토 공정)만 언급하고 구체적인 설비 번호(예: 1번, EQP-PHOTO-001 등)를 지정하지 않은 경우, **도구를 호출하지 않고** 즉시 대화를 멈춘 뒤 단독으로 아래와 같이 되묻습니다.
+     - `"어떤 설비 번호의 조회를 원하시나요?"`
+   - 사용자가 날짜나 시각 정보를 모호하게 요청하여 과거 데이터를 조회해야 하는지 불분명한 경우에도 도구를 호출하지 않고 아래와 같이 되묻습니다.
+     - `"조회를 원하는 특정 날짜가 있으신가요?"`
+2. **한국어 설비 ID 매핑 규칙 (Korean Equipment Mapping)**
+   - 자연어 질문에 입력된 한국어 설비 명칭을 시스템 표준 설비 ID로 매핑하여 도구를 호출합니다.
+     - *세정 1번 ➔ `EQP-CLEANING-001` / 세정 2번 ➔ `EQP-CLEANING-002`*
+     - *데포/증착 1번 ➔ `EQP-DEPOSITION-001` / 데포/증착 2번 ➔ `EQP-DEPOSITION-002`*
+     - *식각 1번 ➔ `EQP-ETCH-001` / 식각 2번 ➔ `EQP-ETCH-002`*
+     - *포토 1번 ➔ `EQP-PHOTO-001` ... 포토 4번 ➔ `EQP-PHOTO-004`*
+3. **의도 확인 및 양방향 선택지 가이드 규칙 (Intent Clarification)**
+   - 사용자가 날짜를 입력했으나 "요약", "리포트" 등의 단어 없이 모호하게 "데이터 보여줘", "상태 보여줘"라고 한 경우, 도구를 바로 실행하지 않고 아래의 선택지 멘트를 표시하여 사용자의 의도를 묻습니다.
+     ```
+     [요청한 날짜] 데이터 조회를 요청하셨습니다. 어떤 분석을 원하시나요?
+     1. 실제 센서 데이터 예시 조회: 해당 날짜의 실제 센서 측정치 샘플(Raw Data)을 확인합니다.
+     2. 요약 및 진단 분석 리포트 조회: 해당 날짜의 일일 평균치, 가동률 및 이상 징후 요약(Summary Data)을 분석합니다.
+     
+     원하시는 번호나 분석 종류를 말씀해 주세요!
+     ```
+4. **1개월 데이터 보존 정책 규칙 (30-day Retention Boundary Policy)**
+   - 오늘(2026-05-28) 기준 30일이 지난 날짜(2026-04-28 이전)는 Raw 로그가 삭제되어 요약 데이터만 존재하므로, 사용자의 선택과 무관하게 **강제로 요약 데이터 조회 도구를 호출**합니다.
+   - 이 경우 답변 최상단에 `"해당 날짜는 30일이 지난 데이터이므로 Raw 로그가 삭제되어 요약 및 진단 분석 리포트만 제공 가능합니다."`라는 안내 메시지를 추가합니다. (최근 30일 이내의 날짜에는 이 경고를 절대 출력하지 않음)
+5. **데이터 부재 시 대체 날짜 추천 규칙 (Date Discovery)**
+   - 도구 호출 결과 데이터가 존재하지 않는다는 에러(`NO_RAW_DATA` 또는 `NO_SUMMARY_DATA`)를 받으면, 에러 텍스트에 포함된 `조회 가능한 날짜: [...]` 목록을 활용해 정중히 대안 날짜를 제안합니다.
+6. **도메인 외 질의 필터링 (Domain Guardrail)**
+   - 반도체 공정, 설비, 레시피 가이드 외의 일상 질문(예: "오늘 점심 뭐 먹을까?", "Python 리스트 정렬법")은 도구를 호출하지 않고 다음과 같이 차단합니다.
+     - `"스마트 팩토리 공정 진단 외의 질문에는 답변할 수 없습니다."`
+
+### 2.3 에이전트 응답 템플릿 (Response Template)
+에이전트는 데이터 조회 성공 시 아래 3단 구조의 마크다운 템플릿 형태로 리포트를 응답합니다. (Thought 내부 생각은 노출하지 않고, 정상/이상 유무와 상관없이 이 형식을 칼같이 준수합니다.)
+
+```markdown
+데이터 기준 시각: YYYY년 MM월 DD일 HH시 mm분 ss초
+
+1. 진단 결과 (이상 징후 유무)
+- [진단 결과 서술: 정상 가동 중이거나 이상 수치 감지 여부]
+
+2. 근거 데이터 (S3 수치 대조)
+- **장비 ID / 센서 종류**: 실측 수치 (레시피 한계치: Min ~ Max) [단위]
+- [각 센서 지표를 나열]
+
+3. 권장 조치 사항 (Action Item)
+- [조치 사항 서술: 정상 시 "특이사항 없음...", 이상 시 원인 분류 및 현장 조치 제안]
+
+📎 참조 데이터 소스: s3://sigma-310095858382-ap-northeast-2-an/YYYY/MM/DD/...
+```
+
+---
+
+## 🛠️ 3. AWS Bedrock Action Group 및 Lambda 작업 함수 명세
+
+AWS Bedrock Agent는 **Action Group (`S3-Data-Fetcher`)**을 통해 아래 정의된 **AWS Lambda Function (`arn:aws:lambda:ap-northeast-2:310095858382:function:S3-Data-Fetcher-bvogc`)**을 트리거하여 데이터를 쿼리합니다.
+
+### 3.1 람다 연동 함수 명세 (Function Schema)
+
+#### ① `get_realtime_raw_logs` (실시간 Raw 센서 로그 조회)
+- **설명**: 특정 공정 단계의 실시간 Raw 센서 로그 데이터를 S3에서 직접 수집 및 파싱합니다.
+- **파라미터**:
+  - `processStage` (string, **필수**): 분석할 공정 단계 (`CLEANING`, `DEPOSITION`, `ETCH`, `PHOTO` 중 하나)
+  - `targetDate` (string, **선택**): 조회할 특정 일자 (`YYYY-MM-DD` 포맷)
+- **Lambda 주요 동작**:
+  1. `targetDate`가 오늘 기준 30일 이전이면 즉시 `EXPIRED_RAW_DATA` 에러 반환.
+  2. S3의 `YYYY/MM/DD/` 경로에서 해당 공정단계에 매핑된 설비 ID 문자열이 포함된 JSON 파일을 필터링.
+  3. 가장 최근 파일(`LastModified`)을 골라 바이트를 다운로드 후 JSON 파싱.
+  4. `"measurements"` 배열에서 해당 설비 ID에 필터링된 최신 2개의 샘플 데이터를 추출해 반환.
+  5. 데이터가 없을 경우 S3 전체 경로를 훑어 데이터가 있는 유효한 날짜 목록을 수집하여 `NO_RAW_DATA` 에러와 함께 반환.
+
+#### ② `get_process_summary` (일일 통계 요약 데이터 조회)
+- **설명**: 특정 공정 단계의 일일 요약(Summary) Parquet 통계 데이터를 조회합니다.
+- **파라미터**:
+  - `processStage` (string, **필수**): 분석할 공정 단계 (`CLEANING`, `DEPOSITION`, `ETCH`, `PHOTO` 중 하나)
+  - `targetDate` (string, **선택**): 조회할 특정 일자 (`YYYY-MM-DD` 포맷)
+- **Lambda 주요 동작**:
+  1. S3 `summary-data/` 경로를 탐색해 요청한 날짜가 유효한지 검증. 없을 시 `NO_SUMMARY_DATA`와 가능 일자 목록 반환.
+  2. 대상 설비별 Parquet 파일 경로를 획득.
+  3. `s3_client.select_object_content` API를 호출하고 SQL 쿼리(`SELECT * FROM s3object LIMIT 5`)를 작성하여 Parquet에서 요약 통계 정보(평균치, 가동률 등)를 JSON 행 데이터로 전환하여 가져옴.
+
+#### ③ `get_defect_analysis` (설비 및 공정 불량 분석)
+- **설명**: 특정 설비 또는 공정에서 발생한 공정 불량(Defect) 건들을 MariaDB RDS에서 조회합니다.
+- **파라미터**:
+  - `processStage` (string, **선택**): 조회할 공정 단계
+  - `equipmentName` (string, **선택**): 조회할 표준 설비명 (예: `EQP-PHOTO-004`)
+- **Lambda 주요 동작**:
+  1. RDS 커넥션 풀을 가동하여 `defect_info`와 `lot_info` 테이블을 `lot_id` 기준 LEFT JOIN 쿼리 실행.
+  2. 설비명 또는 공정명 필터를 동적으로 붙여 최신 발생 순으로 정렬하여 최대 50건을 반환.
+
+#### ④ `get_anomaly_defect_correlation` (이상 로그-불량 상관관계 상관분석)
+- **설명**: 특정 설비의 이상 탐지 로그와 불량 데이터 간의 시간 기반 교차 매핑을 수행합니다.
+- **파라미터**:
+  - `equipmentName` (string, **필수**): 상관분석을 진행할 설비명 (예: `EQP-CLEANING-001`)
+- **Lambda 주요 동작**:
+  1. RDS `equipment_info`에서 설비명으로 고유 설비 ID 획득.
+  2. `anomaly_log` 테이블에서 해당 설비의 최근 10건 이상 탐지 로그를 가져옴.
+  3. **시간 기반 교차 매핑**: 각 이상 로그 시각(`occurred_time`) 기준 **`±30분`** 범위 안에서 `defect_info`를 조회.
+  4. 이상 로그별 매핑된 불량 개수와 불량 코드를 취합하여 상관관계 판단 플래그(`correlation_detected`)를 생성해 반환.
+
+### 3.2 람다 소스코드 핵심 구조 (Python 3.9+)
+전체 소스코드는 [lambda_function.py](file:///C:/inspire/404factory/chatbot-service/lambda_src/lambda_function.py)에 구현되어 있으며 주요 특징은 다음과 같습니다:
+- **종속성 격리**: `pymysql`을 람다 함수 내에 포함하여 패키징하였습니다.
+- **S3 Select 활용**: 대용량 Parquet 파일을 메모리에 전부 올리지 않고도 효율적으로 일부 행만 필터링하기 위해 `s3_client.select_object_content`를 통해 SQL Expression을 날려 S3 가상 가속 처리를 구현하였습니다.
+- **시리얼라이저 정밀화**: MariaDB에서 가져온 `datetime` 객체가 JSON 변환 과정에서 직렬화 에러를 유발하는 현상을 차단하기 위해, RDS 결과 셋을 돌며 발생 시간을 직접 `%Y-%m-%d %H:%M:%S` 문자열 포맷으로 변환해 주는 전처리 로직이 포함되어 있습니다.
+
+---
+
+## ☁️ 4. S3 데이터 레이어 연동 규격 (실시간 센서 로그)
 
 시뮬레이터가 설비 가동 상태를 시뮬레이션하여 S3에 저장하는 실시간 로그 파일의 경로 구성 및 JSON 포맷 규격입니다.
 
-### 2.1 S3 버킷 정보 및 파일 경로
+### 4.1 S3 버킷 정보 및 파일 경로
 - **버킷명**: `sigma-310095858382-ap-northeast-2-an`
 - **Raw 데이터(실시간) 업로드 경로**: `YYYY/MM/DD/` (예: `2026/05/26/`)
   - *참고*: 파일명 자체는 자유롭게 생성 가능하나, Lambda에서 검색 효율성을 위해 파일명 또는 경로 내에 표준 설비 ID(예: `EQP-PHOTO-004`)가 포함되어야 필터링 및 조회가 가능합니다.
 
-### 2.2 실시간 로그 JSON 스키마 규격
-Lambda 수집 엔진([lambda_function.py](file:///C:/inspire/404factory/chatbot-service/lambda_src/lambda_function.py))이 파싱할 수 있도록, 시뮬레이터는 아래와 같은 포맷으로 JSON을 적재해야 합니다.
+### 4.2 실시간 로그 JSON 스키마 규격
+시뮬레이터는 아래와 같은 포맷으로 JSON을 적재해야 합니다.
 
 ```json
 {
@@ -81,22 +195,13 @@ Lambda 수집 엔진([lambda_function.py](file:///C:/inspire/404factory/chatbot-
 > 2. `"measurements"` 배열 내부의 각 객체는 설비를 식별할 수 있는 `"equipmentId"`(예: `EQP-PHOTO-004`)를 가지고 있어야 합니다.
 > 3. AI 에이전트는 해당 일자 경로의 가장 마지막 수정 시간(`LastModified`)을 가진 JSON 파일을 읽은 뒤, **`measurements` 배열의 마지막 2개 샘플(최신 데이터)**을 추출하여 표준 레시피 한계치와 비교 분석합니다.
 
-### 2.3 데이터 보존(Retention) 및 폴백(Fallback) 예외 처리
-1. **30일 보존 정책 (Expired Data Fallback)**
-   - 실시간 Raw 로그 데이터는 **최근 30일 이내**의 데이터만 보존됩니다.
-   - 30일이 경과된 과거 날짜의 데이터를 요청받은 경우, Lambda는 `EXPIRED_RAW_DATA` 에러를 반환합니다. Bedrock 에이전트는 이를 감지하여 사용자에게 Raw 로그 대신 일일 단위로 축적된 Parquet 통계 요약 데이터(`summary-data/`)를 조회하도록 안내합니다.
-2. **데이터 부재 시 날짜 추천 기능 (Date Discovery)**
-   - 사용자가 요청한 날짜에 적재된 S3 로그 파일이 존재하지 않는 경우(예: 시뮬레이터가 중지된 날짜), Lambda는 에러로 멈추지 않고 S3 내에 저장되어 있는 모든 날짜 디렉토리를 정밀 스캔하여 **실제 데이터가 존재하는 날짜 목록**을 반환합니다.
-   - 예: `NO_RAW_DATA: 해당 날짜에 raw 데이터가 존재하지 않습니다. 조회 가능한 날짜: [2026-05-26, 2026-05-28]`
-   - Bedrock 에이전트는 이 목록을 읽어 사용자에게 대안 날짜를 추천해 줍니다.
-
 ---
 
-## 🗄️ 3. RDS 데이터 레이어 연동 규격 (이상 및 불량 데이터)
+## 🗄️ 5. RDS 데이터 레이어 연동 규격 (이상 및 불량 데이터)
 
 시뮬레이터 및 상관관계 검증 프로세스가 RDS (`factory_db`) 마리아디비에 적재해야 하는 테이블 명세 및 AI 분석 로직입니다.
 
-### 3.1 표준 설비 매핑 정보 (`equipment_info`)
+### 5.1 표준 설비 매핑 정보 (`equipment_info`)
 AI 에이전트가 사용하는 표준 설비 ID와 시뮬레이터의 설비명 매핑 구조입니다.
 
 | 설비 ID (RDBMS DB Key) | 설비 코드 (S3/RDBMS) | 실제 공정명 (Process) |
@@ -112,7 +217,7 @@ AI 에이전트가 사용하는 표준 설비 ID와 시뮬레이터의 설비명
 | **9** | `EQP-CLEANING-001` | 세정 (CLEANING) |
 | **10** | `EQP-CLEANING-002` | 세정 (CLEANING) |
 
-### 3.2 이상 로그 테이블 스키마 (`anomaly_log`)
+### 5.2 이상 로그 테이블 스키마 (`anomaly_log`)
 시뮬레이터가 이탈 값(레시피 범위를 벗어난 이상 수치)을 감지했을 때 적재하는 테이블입니다.
 
 ```sql
@@ -127,7 +232,7 @@ CREATE TABLE anomaly_log (
 );
 ```
 
-### 3.3 불량 정보 테이블 스키마 (`defect_info`)
+### 5.3 불량 정보 테이블 스키마 (`defect_info`)
 공정 완료 후 품질 검사 장비나 시뮬레이터가 판정한 불량(Defect) 이력 테이블입니다.
 
 ```sql
@@ -142,7 +247,7 @@ CREATE TABLE defect_info (
 );
 ```
 
-### 3.4 ⚠️ 인과관계 교차 상관분석 로직 (±30분 룰)
+### 5.4 ⚠️ 인과관계 교차 상관분석 로직 (±30분 룰)
 시뮬레이터가 가상 시나리오를 만들 때 가장 주의해야 하는 연동 핵심 로직입니다.
 
 - **AI 분석 시점**: 사용자가 특정 설비의 이상 원인을 분석해 달라고 요청할 때 (`get_anomaly_defect_correlation` 함수 가동)
@@ -151,7 +256,7 @@ CREATE TABLE defect_info (
 
 ---
 
-## 🎯 4. AI 에이전트 검증용 골든 셋 (Golden Set) 시나리오
+## 🎯 6. AI 에이전트 검증용 골든 셋 (Golden Set) 시나리오
 
 디바이스 시뮬레이터로 생성한 데이터가 시스템에 완벽히 연동되어 작동하는지 검증하기 위한 대표 골든 셋 시나리오 2종입니다. 시뮬레이터 실행 후 챗봇 UI에서 아래 질문을 통해 검증하십시오.
 
@@ -173,7 +278,7 @@ CREATE TABLE defect_info (
 
 ---
 
-## 📂 5. 프로젝트 디렉토리 구조
+## 📂 7. 프로젝트 디렉토리 구조
 
 서비스 소스코드는 아래와 같은 구조로 이루어져 있습니다.
 
@@ -199,11 +304,11 @@ C:/inspire/404factory/
 
 ---
 
-## ⚙️ 6. 실행 및 로컬 구동 가이드
+## ⚙️ 8. 실행 및 로컬 구동 가이드
 
 시뮬레이터 연동 상태에서 챗봇 서비스를 직접 띄워 테스트하기 위한 환경 설정 및 실행 방법입니다.
 
-### 6.1 환경 변수 구성 (.env)
+### 8.1 환경 변수 구성 (.env)
 백엔드 프로젝트 루트(`chatbot-service/chatbot_service/`)에 `.env` 파일을 생성하고 아래 자격 증명을 올바르게 입력합니다.
 ```env
 # RDS 데이터베이스 연결 정보
@@ -216,14 +321,14 @@ AWS_AGENT_ID=SHFTOIN2IV
 AWS_AGENT_ALIAS_ID=MTN5THYODH
 ```
 
-### 6.2 백엔드 구동 (Spring Boot)
+### 8.2 백엔드 구동 (Spring Boot)
 Gradle wrapper를 사용하여 백엔드 애플리케이션을 구동합니다. 구동 시 포트는 `8085`가 사용됩니다.
 ```bash
 cd C:/inspire/404factory/chatbot-service/chatbot_service
 ./gradlew bootRun
 ```
 
-### 6.3 프론트엔드 구동 (React)
+### 8.3 프론트엔드 구동 (React)
 패키지 매니저로 `pnpm`을 사용합니다. 프론트엔드는 `5174` 포트에서 실행됩니다.
 ```bash
 cd C:/inspire/404factory/frontend
@@ -233,9 +338,9 @@ pnpm run dev
 
 ---
 
-## 🌐 7. 주요 API 명세
+## 🌐 9. 주요 API 명세
 
-### 7.1 실시간 인공지능 진단 및 대화 요청
+### 9.1 실시간 인공지능 진단 및 대화 요청
 - **Endpoint**: `POST /api/chat/insight`
 - **Request Body**:
   ```json
@@ -253,7 +358,7 @@ pnpm run dev
   }
   ```
 
-### 7.2 대화 목록 및 이력 관리 API
+### 9.2 대화 목록 및 이력 관리 API
 - **대화방 목록 조회**: `GET /api/chat/rooms` (과거 진단 이력 세션을 탐색)
 - **대화방 삭제**: `DELETE /api/chat/rooms/{roomId}`
 - **대화 내역 상세 조회**: `GET /api/chat/rooms/{roomId}/messages`
