@@ -9,6 +9,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.bedrockagentruntime.BedrockAgentRuntimeAsyncClient;
 import software.amazon.awssdk.services.bedrockagentruntime.model.InvokeAgentRequest;
 import software.amazon.awssdk.services.bedrockagentruntime.model.InvokeAgentResponseHandler;
+import jakarta.annotation.PostConstruct;
 
 @Service
 public class BedrockAgentService {
@@ -25,6 +26,29 @@ public class BedrockAgentService {
             .region(Region.of(region))
             .credentialsProvider(DefaultCredentialsProvider.create())
             .build();
+    }
+
+    @PostConstruct
+    public void initClockSkew() {
+        System.out.println("[INIT] Starting clock skew synchronization with AWS Bedrock...");
+        try {
+            runtimeAsyncClient.invokeAgent(
+                InvokeAgentRequest.builder()
+                    .agentId(agentId)
+                    .agentAliasId(agentAliasId)
+                    .sessionId("skew-sync-session")
+                    .inputText("skew-sync-ping")
+                    .build(),
+                InvokeAgentResponseHandler.builder()
+                    .onEventStream(stream -> {})
+                    .build()
+            ).handle((res, ex) -> {
+                System.out.println("[INIT] Clock skew sync completed (successfully parsed headers or handled error).");
+                return null;
+            });
+        } catch (Exception e) {
+            System.out.println("[WARN] Clock skew sync initiation warning: " + e.getMessage());
+        }
     }
 
     public String askInsightAI(String userPrompt, String roomId) {

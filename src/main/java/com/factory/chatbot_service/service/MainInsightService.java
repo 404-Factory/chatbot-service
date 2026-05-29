@@ -54,6 +54,24 @@ public class MainInsightService {
             chatMessageRepository.save(userMsg);
         }
 
+        // 🎯 [해결 포인트] 시스템에 존재하지 않는 설비 ID 요청 시 에이전트 호출을 차단하고 예외 메시지를 반환합니다.
+        if (equipmentId != null) {
+            Optional<EquipmentInfo> eqInfoOpt = equipmentInfoRepository.findById(equipmentId.longValue());
+            if (eqInfoOpt.isEmpty()) {
+                System.out.println("[WARN] Non-existent Equipment ID requested: " + equipmentId);
+                String fallbackResponse = "해당 설비는 시스템에 존재하지 않는 설비입니다.";
+                if (roomId != null) {
+                    ChatMessage aiMsg = new ChatMessage();
+                    aiMsg.setRoomId(roomId);
+                    aiMsg.setRole("ASSISTANT");
+                    aiMsg.setContent(fallbackResponse);
+                    aiMsg.setCreatedAt(LocalDateTime.now());
+                    chatMessageRepository.save(aiMsg);
+                }
+                return fallbackResponse;
+            }
+        }
+
         // 3. 기존 AI 프롬프트 조립 및 Bedrock 호출 로직
         String aiResponse;
         if (equipmentId == null) {
