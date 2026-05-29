@@ -133,4 +133,23 @@ public class MainInsightService {
     public void deleteRoom(String roomId) {
         chatRoomRepository.deleteById(roomId);
     }
+
+    public void saveMessageDirectly(String roomId, String role, String content, String title) {
+        if (roomId != null && !chatRoomRepository.existsById(roomId)) {
+            ChatRoom room = new ChatRoom();
+            room.setRoomId(roomId);
+            room.setTitle(title != null ? title : (content.length() > 12 ? content.substring(0, 12) + "..." : content));
+            room.setCreatedAt(LocalDateTime.now());
+            chatRoomRepository.save(room);
+        }
+
+        if (roomId != null) {
+            ChatMessage msg = new ChatMessage();
+            msg.setRoomId(roomId);
+            msg.setRole(role.toUpperCase());
+            msg.setContent(content);
+            msg.setCreatedAt(LocalDateTime.now());
+            chatMessageRepository.save(msg);
+        }
+    }
 }

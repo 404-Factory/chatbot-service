@@ -30,6 +30,17 @@ public class ChatbotController {
         return ResponseEntity.ok(Map.of("reply", aiResponse));
     }
 
+    @PostMapping("/message/save")
+    public ResponseEntity<Void> saveMessageDirectly(@RequestBody Map<String, String> request) {
+        String roomId = request.get("roomId");
+        String role = request.get("role");
+        String content = request.get("content");
+        String title = request.get("title");
+
+        mainInsightService.saveMessageDirectly(roomId, role, content, title);
+        return ResponseEntity.ok().build();
+    }
+
     @GetMapping("/rooms")
     public ResponseEntity<List<ChatRoom>> getAllRooms() {
         return ResponseEntity.ok(mainInsightService.getAllRooms());
