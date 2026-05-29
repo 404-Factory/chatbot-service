@@ -12,15 +12,26 @@
 
 ```mermaid
 graph TD
-    %% 데이터 생성 (시뮬레이터 영역)
-    subgraph Device Simulator Area
-        Sim[디바이스 시뮬레이터] -->|① 실시간 센서 로그 업로드| S3[(Amazon S3)]
-        Sim -->|② 이상 알림 & 불량 로그 삽입| RDS[(Amazon RDS MariaDB)]
-    end
+    %% 사용자 및 인터페이스
+    User([엔지니어/사용자]) <-->|대화 및 리포트 조회| FE[React Frontend :5174]
+    FE <-->|REST API: POST /api/chat/insight| BE[Spring Boot Backend :8085]
 
     %% AI 에이전트 영역
     subgraph AWS Bedrock Agent Cloud
-        Bedrock[AWS Bedrock Agent :DANAI] -->|④ 분석 명령 & 파라미터 ## 🧠 2. AWS Bedrock Agent (DANAI) 프롬프트 및 의사결정 로직
+        BE <-->|③ 대화 요청| Bedrock[AWS Bedrock Agent :DANAI]
+        Bedrock <-->|④ 분석 명령 및 파라미터 전달| Lambda[AWS Lambda :S3-Data-Fetcher]
+        Lambda -->|⑤ S3 Select/Parquet 요약 및 Raw 센서 데이터 조회| S3[(Amazon S3)]
+        Lambda -->|⑥ 이상 로그 및 불량 데이터 조회 & 교차 분석| RDS[(Amazon RDS MariaDB)]
+    end
+
+    %% 데이터 생성 (시뮬레이터 영역)
+    subgraph Device Simulator Area
+        Sim[디바이스 시뮬레이터] -->|① 실시간 센서 로그 업로드| S3
+        Sim -->|② 이상 알림 & 불량 로그 삽입| RDS
+    end
+```
+
+## 🧠 2. AWS Bedrock Agent (DANAI) 프롬프트 및 의사결정 로직
 
 인공지능 진단 에이전트 **DANAI**의 역할정의, 프롬프트 인스트럭션(Prompt Instructions), 의사결정 규칙입니다. 에이전트는 이 가이드를 기반으로 스스로 판단하여 백엔드 도구(Lambda)를 호출합니다.
 
