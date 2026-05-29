@@ -12,23 +12,35 @@
 
 ```mermaid
 graph TD
-    %% 사용자 및 인터페이스
-    User([엔지니어/사용자]) <-->|대화 및 리포트 조회| FE[React Frontend :5174]
-    FE <-->|REST API: POST /api/chat/insight| BE[Spring Boot Backend :8085]
-
-    %% AI 에이전트 영역
-    subgraph AWS Bedrock Agent Cloud
-        BE <-->|③ 대화 요청| Bedrock[AWS Bedrock Agent :DANAI]
-        Bedrock <-->|④ 분석 명령 및 파라미터 전달| Lambda[AWS Lambda :S3-Data-Fetcher]
-        Lambda -->|⑤ S3 Select/Parquet 요약 및 Raw 센서 데이터 조회| S3[(Amazon S3)]
-        Lambda -->|⑥ 이상 로그 및 불량 데이터 조회 & 교차 분석| RDS[(Amazon RDS MariaDB)]
-    end
+    %% 사용자 및 인터페이스 (외부)
+    User([엔지니어/사용자])
+    FE[React Frontend :5174]
+    BE[Spring Boot Backend :8085]
 
     %% 데이터 생성 (시뮬레이터 영역)
-    subgraph Device Simulator Area
-        Sim[디바이스 시뮬레이터] -->|① 실시간 센서 로그 업로드| S3
-        Sim -->|② 이상 알림 & 불량 로그 삽입| RDS
+    subgraph Device Simulator Area [Device Simulator Area]
+        Sim[디바이스 시뮬레이터]
     end
+
+    %% AI 에이전트 영역
+    subgraph AWS Bedrock Agent Cloud [AWS Bedrock Agent Cloud]
+        Bedrock[AWS Bedrock Agent :DANAI]
+        Lambda[AWS Lambda :S3-Data-Fetcher]
+    end
+
+    %% 데이터 저장소 (외부)
+    S3[(Amazon S3)]
+    RDS[(Amazon RDS MariaDB)]
+
+    %% 연결 관계 정의 (모든 서브그래프 외부)
+    User <-->|대화 및 리포트 조회| FE
+    FE <-->|REST API: POST /api/chat/insight| BE
+    BE <-->|③ 대화 요청| Bedrock
+    Bedrock <-->|④ 분석 명령 및 파라미터 전달| Lambda
+    Lambda -->|⑤ S3 Select/Parquet 요약 및 Raw 센서 데이터 조회| S3
+    Lambda -->|⑥ 이상 로그 및 불량 데이터 조회 & 교차 분석| RDS
+    Sim -->|① 실시간 센서 로그 업로드| S3
+    Sim -->|② 이상 알림 & 불량 로그 삽입| RDS
 ```
 
 ## 🧠 2. AWS Bedrock Agent (DANAI) 프롬프트 및 의사결정 로직
