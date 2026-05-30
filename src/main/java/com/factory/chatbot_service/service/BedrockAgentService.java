@@ -104,6 +104,9 @@ public class BedrockAgentService {
     private String cleanResponse(String response) {
         if (response == null) return "";
         
+        // Remove any XML/HTML tags that might leak from prompt structures or tool responses
+        response = response.replaceAll("<[^>]*>", "");
+        
         // If it's a normal report containing the data timestamp, keep it as-is
         if (response.contains("데이터 기준 시각:")) {
             return response.trim();

@@ -27,11 +27,59 @@ public class MainInsightService {
     private final DefectInfoRepository defectInfoRepository;
     private final EquipmentInfoRepository equipmentInfoRepository;
 
+    private boolean isOutOfDomain(String question) {
+        if (question == null) return true;
+        String q = question.toLowerCase().replaceAll("\\s+", "");
+        
+        String[] domainKeywords = {
+            "공정", "설비", "레시피", "장비", "온도", "압력", "센서", "농도", "속도", "베이크", "노광", "식각", "세정", "증착", 
+            "이탈", "불량", "defect", "anomaly", "lot", "chamber", "spin", "eqp", "photo", "etch", "cleaning", "deposition", 
+            "nelson", "rule", "현황", "리포트", "데이터", "상태", "조회", "분석", "안녕", "hello", "hi", "추천"
+        };
+        
+        for (String keyword : domainKeywords) {
+            if (q.contains(keyword)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public String getEquipmentAnalysis(Integer equipmentId, String userQuestion, String roomId) {
         System.out.println("[DEBUG] MainInsightService - getEquipmentAnalysis called");
         System.out.println("[DEBUG] equipmentId: " + equipmentId);
         System.out.println("[DEBUG] userQuestion: " + userQuestion);
         System.out.println("[DEBUG] roomId: " + roomId);
+
+        // 도메인 외 질문 필터링
+        if (isOutOfDomain(userQuestion)) {
+            String fallbackResponse = "공정 및 레시피, 설비 등 관련성이 없는 질문에는 답변할 수 없습니다.";
+            if (roomId != null) {
+                if (!chatRoomRepository.existsById(roomId)) {
+                    ChatRoom room = new ChatRoom();
+                    room.setRoomId(roomId);
+                    String title = userQuestion.length() > 12 ? userQuestion.substring(0, 12) + "..." : userQuestion;
+                    room.setTitle(title);
+                    room.setCreatedAt(LocalDateTime.now());
+                    chatRoomRepository.save(room);
+                }
+                
+                ChatMessage userMsg = new ChatMessage();
+                userMsg.setRoomId(roomId);
+                userMsg.setRole("USER");
+                userMsg.setContent(userQuestion);
+                userMsg.setCreatedAt(LocalDateTime.now());
+                chatMessageRepository.save(userMsg);
+                
+                ChatMessage aiMsg = new ChatMessage();
+                aiMsg.setRoomId(roomId);
+                aiMsg.setRole("ASSISTANT");
+                aiMsg.setContent(fallbackResponse);
+                aiMsg.setCreatedAt(LocalDateTime.now());
+                chatMessageRepository.save(aiMsg);
+            }
+            return fallbackResponse;
+        }
 
         // 🔍 [JPA 영속화 1] 해당 방이 DB에 아직 없다면 첫 질문이므로 방부터 개설 (Lazy DB Creation)
         if (roomId != null && !chatRoomRepository.existsById(roomId)) {
