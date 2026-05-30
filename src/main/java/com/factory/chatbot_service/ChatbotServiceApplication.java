@@ -9,7 +9,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @EnableJpaRepositories(basePackages = "com.factory.chatbot_service.repository")
 public class ChatbotServiceApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(ChatbotServiceApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(ChatbotServiceApplication.class, args);
+    }
 }

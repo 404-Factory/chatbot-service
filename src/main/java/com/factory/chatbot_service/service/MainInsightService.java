@@ -140,7 +140,11 @@ public class MainInsightService {
             room.setRoomId(roomId);
             room.setTitle(title != null ? title : (content.length() > 12 ? content.substring(0, 12) + "..." : content));
             room.setCreatedAt(LocalDateTime.now());
-            chatRoomRepository.save(room);
+            try {
+                chatRoomRepository.save(room);
+            } catch (Exception e) {
+                System.out.println("[WARN] Chat room might already exist or save failed: " + roomId + ". Error: " + e.getMessage());
+            }
         }
 
         if (roomId != null) {
