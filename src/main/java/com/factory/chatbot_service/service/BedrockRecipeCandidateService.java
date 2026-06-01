@@ -1,13 +1,12 @@
 package com.factory.chatbot_service.service;
+import com.factory.chatbot_service.dto.RecipeRecommendDto;
+import com.factory.chatbot_service.dto.LlmRecommendationDto;
 
 import com.factory.chatbot_service.dto.RecipeHistoryCase;
 import com.factory.chatbot_service.dto.SensorSnapshot;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.factory.chatbot_service.dto.RecipeRecommendRequest;
-import com.factory.chatbot_service.dto.RecipeRecommendResponse;
-import com.factory.chatbot_service.dto.LlmRecipeRecommendation;
 import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,9 +33,9 @@ public class BedrockRecipeCandidateService {
         this.objectMapper = objectMapper;
     }
 
-    public LlmRecipeRecommendation recommendCandidate(
-            RecipeRecommendRequest request,
-            RecipeRecommendResponse backendRecommendation
+    public LlmRecommendationDto.Recommendation recommendCandidate(
+            RecipeRecommendDto.Request request,
+            RecipeRecommendDto.Response backendRecommendation
     ) {
         if (!StringUtils.hasText(modelId) || backendRecommendation == null) {
             return null;
@@ -72,8 +71,8 @@ public class BedrockRecipeCandidateService {
     }
 
     private String buildPrompt(
-            RecipeRecommendRequest request,
-            RecipeRecommendResponse backendRecommendation
+            RecipeRecommendDto.Request request,
+            RecipeRecommendDto.Response backendRecommendation
     ) throws Exception {
         return """
                 너는 반도체 공정 레시피 추천 후보를 생성하는 AI다.
@@ -136,7 +135,7 @@ public class BedrockRecipeCandidateService {
         return StringUtils.hasText(text.toString()) ? text.toString().trim() : null;
     }
 
-    private LlmRecipeRecommendation parseCandidateJson(String text) throws Exception {
+    private LlmRecommendationDto.Recommendation parseCandidateJson(String text) throws Exception {
         if (!StringUtils.hasText(text)) {
             return null;
         }
@@ -148,7 +147,7 @@ public class BedrockRecipeCandidateService {
         }
 
         String json = text.substring(start, end + 1);
-        return objectMapper.readValue(json, LlmRecipeRecommendation.class);
+        return objectMapper.readValue(json, LlmRecommendationDto.Recommendation.class);
     }
 
     private String nullToEmpty(String value) {

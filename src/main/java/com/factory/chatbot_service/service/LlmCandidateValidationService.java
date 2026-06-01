@@ -1,10 +1,9 @@
 package com.factory.chatbot_service.service;
+import com.factory.chatbot_service.dto.RecipeRecommendDto;
+import com.factory.chatbot_service.dto.LlmRecommendationDto;
 
-import com.factory.chatbot_service.dto.LlmRecommendedParameter;
-import com.factory.chatbot_service.dto.LlmRecipeRecommendation;
 
 import com.factory.chatbot_service.dto.RecipeParameterValue;
-import com.factory.chatbot_service.dto.RecipeRecommendResponse;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -17,8 +16,8 @@ import org.springframework.util.StringUtils;
 public class LlmCandidateValidationService {
 
     public List<String> validate(
-            RecipeRecommendResponse backendRecommendation,
-            LlmRecipeRecommendation candidate,
+            RecipeRecommendDto.Response backendRecommendation,
+            LlmRecommendationDto.Recommendation candidate,
             double minConfidence
     ) {
         List<String> violations = new ArrayList<>();
@@ -49,13 +48,13 @@ public class LlmCandidateValidationService {
                         (first, second) -> first
                 ));
 
-        List<LlmRecommendedParameter> candidateParameters = safeList(candidate.getRecommendedParameters());
+        List<LlmRecommendationDto.Parameter> candidateParameters = safeList(candidate.getRecommendedParameters());
         if (candidateParameters.isEmpty()) {
             violations.add("LLM candidate has no recommendedParameters.");
             return violations;
         }
 
-        for (LlmRecommendedParameter candidateParameter : candidateParameters) {
+        for (LlmRecommendationDto.Parameter candidateParameter : candidateParameters) {
             validateParameter(candidateParameter, baseByName, violations);
         }
 
@@ -63,7 +62,7 @@ public class LlmCandidateValidationService {
     }
 
     private void validateParameter(
-            LlmRecommendedParameter candidateParameter,
+            LlmRecommendationDto.Parameter candidateParameter,
             Map<String, RecipeParameterValue> baseByName,
             List<String> violations
     ) {

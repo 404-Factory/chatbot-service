@@ -1,9 +1,8 @@
 package com.factory.chatbot_service.controller;
+import com.factory.chatbot_service.dto.RecipeRecommendDto;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.factory.chatbot_service.dto.RecipeRecommendRequest;
-import com.factory.chatbot_service.dto.RecipeRecommendResponse;
 import com.factory.chatbot_service.service.RecipeRecommendationService;
 import java.util.List;
 import org.springframework.web.bind.annotation.*;
@@ -24,10 +23,10 @@ public class RecipeRecommendationController {
     }
 
     @PostMapping("/recommend")
-    public RecipeRecommendResponse recommend(@RequestBody(required = false) String body) {
-        RecipeRecommendRequest request = parseRequest(body);
+    public RecipeRecommendDto.Response recommend(@RequestBody(required = false) String body) {
+        RecipeRecommendDto.Request request = parseRequest(body);
         if (request == null) {
-            return RecipeRecommendResponse.builder()
+            return RecipeRecommendDto.Response.builder()
                     .status("BAD_REQUEST")
                     .summary("Request body must be valid JSON. Example: {\"equipmentId\":\"1\",\"defectType\":\"Scratch\"}")
                     .recommendedRecipe(null)
@@ -47,13 +46,13 @@ public class RecipeRecommendationController {
         return "recipe-controller-raw-json-v2";
     }
 
-    private RecipeRecommendRequest parseRequest(String body) {
+    private RecipeRecommendDto.Request parseRequest(String body) {
         if (body == null || body.isBlank()) {
             return null;
         }
 
         try {
-            return objectMapper.readValue(body, RecipeRecommendRequest.class);
+            return objectMapper.readValue(body, RecipeRecommendDto.Request.class);
         } catch (JsonProcessingException e) {
             return null;
         }

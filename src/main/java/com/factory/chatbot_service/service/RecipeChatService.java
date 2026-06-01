@@ -1,7 +1,8 @@
 package com.factory.chatbot_service.service;
+import com.factory.chatbot_service.dto.RecipeRecommendDto;
+import com.factory.chatbot_service.dto.LlmRecommendationDto;
+import com.factory.chatbot_service.dto.ChatDto;
 
-import com.factory.chatbot_service.dto.ChatResponse;
-import com.factory.chatbot_service.dto.ChatRequest;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -9,9 +10,6 @@ import com.factory.chatbot_service.service.BedrockRecipeAnswerService;
 import com.factory.chatbot_service.service.BedrockRecipeCandidateService;
 import com.factory.chatbot_service.dto.ExpectedEffect;
 import com.factory.chatbot_service.dto.RecipeParameterValue;
-import com.factory.chatbot_service.dto.RecipeRecommendRequest;
-import com.factory.chatbot_service.dto.RecipeRecommendResponse;
-import com.factory.chatbot_service.dto.LlmRecipeRecommendation;
 import com.factory.chatbot_service.service.RecommendationSelectionService;
 import com.factory.chatbot_service.service.RecipeRecommendationService;
 import java.util.List;
@@ -63,9 +61,9 @@ public class RecipeChatService {
         this.objectMapper = objectMapper;
     }
 
-    public ChatResponse chat(ChatRequest request) {
+    public ChatDto.Response chat(ChatDto.Request request) {
         if (request == null || !StringUtils.hasText(request.getMessage())) {
-            return ChatResponse.builder()
+            return ChatDto.Response.builder()
                     .status("BAD_REQUEST")
                     .answer("질문 내용을 입력해 주세요.")
                     .sessionId(null)
@@ -74,9 +72,9 @@ public class RecipeChatService {
         }
 
         String sessionId = resolveSessionId(request.getSessionId());
-        RecipeRecommendRequest recommendRequest = toRecommendRequest(request.getMessage());
+        RecipeRecommendDto.Request recommendRequest = toRecommendRequest(request.getMessage());
         if (!StringUtils.hasText(recommendRequest.getEquipmentId())) {
-            return ChatResponse.builder()
+            return ChatDto.Response.builder()
                     .status("INSUFFICIENT_CONTEXT")
                     .answer("추천할 설비 ID를 찾지 못했습니다. 예: \"설비 1번의 PATTERN 불량을 줄일 레시피 파라미터를 추천해줘\"")
                     .sessionId(sessionId)
@@ -86,7 +84,7 @@ public class RecipeChatService {
 
         // 백엔드 추천 전에 자연어 요청이 레시피 추천 의도인지 먼저 확인한다.
         if (!isRecipeRecommendationIntent(request.getMessage(), recommendRequest)) {
-            return ChatResponse.builder()
+            return ChatDto.Response.builder()
                     .status("UNSUPPORTED_INTENT")
                     .answer("레시피 추천을 안전하게 수행하려면 설비 ID와 함께 불량 유형, 개선 목표, 또는 추천 요청이 필요합니다. 예: \"설비 1번의 PATTERN 불량을 줄일 레시피 파라미터를 추천해줘\"")
                     .sessionId(sessionId)
@@ -95,7 +93,7 @@ public class RecipeChatService {
         }
 
         // 백엔드 추천을 기준선으로 만들고, LLM 후보를 별도로 생성/검증한다.
-        RecipeRecommendResponse backendRecommendation = recipeRecommendationService.recommendLocally(recommendRequest);
+        RecipeRecommendDto.Response backendRecommendation = recipeRecommendationService.recommendLocally(recommendRequest);
 
         boolean hasAnomaly = false;
         if (backendRecommendation != null && "SUCCESS".equals(backendRecommendation.getStatus())) {
@@ -119,7 +117,7 @@ public class RecipeChatService {
                     + "따라서 추가적인 레시피 변동이나 보정치 조치(Adjust)는 불필요한 상태입니다.\n\n"
                     + "만약 설비의 가동 상태 트렌드 조회, RDBMS 이상 로그 분석, 또는 장기 이상 추이 분석을 추가로 희망하시는 경우 **[Insight AI로 상세 분석하기]** 기능으로 이동하여 편리하게 대화해 보세요.";
             
-            return ChatResponse.builder()
+            return ChatDto.Response.builder()
                     .status("NORMAL_STATUS")
                     .answer(normalAnswer)
                     .sessionId(sessionId)
@@ -127,10 +125,10 @@ public class RecipeChatService {
                     .build();
         }
 
-        LlmRecipeRecommendation candidate = generateLlmCandidateIfEnabled(recommendRequest, backendRecommendation);
+        LlmRecommendationDto.Recommendation candidate = generateLlmCandidateIfEnabled(recommendRequest, backendRecommendation);
         RecommendationSelectionService.SelectionResult selectionResult =
                 recommendationSelectionService.select(backendRecommendation, candidate);
-        RecipeRecommendResponse recommendation = selectionResult.getRecommendation();
+        RecipeRecommendDto.Response recommendation = selectionResult.getRecommendation();
         log.info("Recipe recommendation selected: source={}, violations={}",
                 selectionResult.getSource(), selectionResult.getViolations());
 
@@ -140,7 +138,7 @@ public class RecipeChatService {
                 ? modelAnswer
                 : toFallbackAnswer(recommendation);
 
-        return ChatResponse.builder()
+        return ChatDto.Response.builder()
                 .status(recommendation.getStatus())
                 .answer(answer)
                 .sessionId(sessionId)
@@ -148,9 +146,9 @@ public class RecipeChatService {
                 .build();
     }
 
-    private LlmRecipeRecommendation generateLlmCandidateIfEnabled(
-            RecipeRecommendRequest recommendRequest,
-            RecipeRecommendResponse backendRecommendation
+    private LlmRecommendationDto.Recommendation generateLlmCandidateIfEnabled(
+            RecipeRecommendDto.Request recommendRequest,
+            RecipeRecommendDto.Response backendRecommendation
     ) {
         if (backendRecommendation == null
                 || !"SUCCESS".equals(backendRecommendation.getStatus())) {
@@ -158,7 +156,7 @@ public class RecipeChatService {
         }
 
         long startedAt = System.currentTimeMillis();
-        LlmRecipeRecommendation candidate = bedrockRecipeCandidateService.recommendCandidate(
+        LlmRecommendationDto.Recommendation candidate = bedrockRecipeCandidateService.recommendCandidate(
                 recommendRequest,
                 backendRecommendation
         );
@@ -231,9 +229,9 @@ public class RecipeChatService {
         return null;
     }
 
-    private RecipeRecommendRequest toRecommendRequest(String message) {
+    private RecipeRecommendDto.Request toRecommendRequest(String message) {
         // Postman 테스트용 JSON과 자연어 질문을 모두 받을 수 있게 처리한다.
-        RecipeRecommendRequest parsedJson = parseJsonRequest(message);
+        RecipeRecommendDto.Request parsedJson = parseJsonRequest(message);
         if (parsedJson != null) {
             if (!StringUtils.hasText(parsedJson.getOperatorQuestion())) {
                 parsedJson.setOperatorQuestion(message);
@@ -241,7 +239,7 @@ public class RecipeChatService {
             return parsedJson;
         }
 
-        RecipeRecommendRequest recommendRequest = new RecipeRecommendRequest();
+        RecipeRecommendDto.Request recommendRequest = new RecipeRecommendDto.Request();
         recommendRequest.setOperatorQuestion(message);
         recommendRequest.setEquipmentId(resolveEquipmentIdFromMessage(message));
         recommendRequest.setDefectType(firstText(
@@ -251,7 +249,7 @@ public class RecipeChatService {
         return recommendRequest;
     }
 
-    private boolean isRecipeRecommendationIntent(String message, RecipeRecommendRequest recommendRequest) {
+    private boolean isRecipeRecommendationIntent(String message, RecipeRecommendDto.Request recommendRequest) {
         if (recommendRequest != null && StringUtils.hasText(recommendRequest.getDefectType())) {
             return true;
         }
@@ -264,14 +262,14 @@ public class RecipeChatService {
                 && RECIPE_RECOMMENDATION_INTENT_PATTERN.matcher(message).find();
     }
 
-    private RecipeRecommendRequest parseJsonRequest(String message) {
+    private RecipeRecommendDto.Request parseJsonRequest(String message) {
         Matcher matcher = JSON_OBJECT_PATTERN.matcher(message);
         if (!matcher.find()) {
             return null;
         }
 
         try {
-            return objectMapper.readValue(matcher.group(), RecipeRecommendRequest.class);
+            return objectMapper.readValue(matcher.group(), RecipeRecommendDto.Request.class);
         } catch (JsonProcessingException e) {
             return null;
         }
@@ -296,7 +294,7 @@ public class RecipeChatService {
         return StringUtils.hasText(first) ? first : second;
     }
 
-    private String toJson(RecipeRecommendResponse recommendation) {
+    private String toJson(RecipeRecommendDto.Response recommendation) {
         try {
             return objectMapper.writeValueAsString(recommendation);
         } catch (JsonProcessingException e) {
@@ -304,7 +302,7 @@ public class RecipeChatService {
         }
     }
 
-    private String toFallbackAnswer(RecipeRecommendResponse response) {
+    private String toFallbackAnswer(RecipeRecommendDto.Response response) {
         if (response == null) {
             return "추천 결과가 비어 있습니다.";
         }
@@ -367,7 +365,7 @@ public class RecipeChatService {
         return answer.toString();
     }
 
-    private String buildFailureAnswer(RecipeRecommendResponse response) {
+    private String buildFailureAnswer(RecipeRecommendDto.Response response) {
         StringBuilder answer = new StringBuilder();
         answer.append("레시피 추천을 완료하지 못했습니다. 상태: ")
                 .append(response.getStatus());

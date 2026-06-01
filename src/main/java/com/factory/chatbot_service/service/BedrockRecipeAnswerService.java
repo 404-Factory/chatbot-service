@@ -1,12 +1,11 @@
 package com.factory.chatbot_service.service;
+import com.factory.chatbot_service.dto.RecipeRecommendDto;
 
 import com.factory.chatbot_service.dto.RecipeHistoryCase;
 import com.factory.chatbot_service.dto.RecipeParameter;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.factory.chatbot_service.dto.RecipeRecommendRequest;
-import com.factory.chatbot_service.dto.RecipeRecommendResponse;
 import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,7 +32,7 @@ public class BedrockRecipeAnswerService {
         this.objectMapper = objectMapper;
     }
 
-    public String explain(RecipeRecommendRequest request, RecipeRecommendResponse response) {
+    public String explain(RecipeRecommendDto.Request request, RecipeRecommendDto.Response response) {
         if (!StringUtils.hasText(modelId) || response == null) {
             return null;
         }
@@ -67,7 +66,7 @@ public class BedrockRecipeAnswerService {
         }
     }
 
-    private String buildPrompt(RecipeRecommendRequest request, RecipeRecommendResponse response) throws Exception {
+    private String buildPrompt(RecipeRecommendDto.Request request, RecipeRecommendDto.Response response) throws Exception {
         return """
                 다음 추천 JSON은 백엔드가 RDS/S3 데이터를 기반으로 안전 범위 안에서 계산한 공정 레시피 파라미터 추천 결과입니다.
                 숫자 추천값을 새로 만들거나 변경하지 말고, 제공된 값과 근거만 설명하세요.

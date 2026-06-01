@@ -1,19 +1,13 @@
 package com.factory.chatbot_service.service;
+import com.factory.chatbot_service.dto.RecipeRecommendDto;
+import com.factory.chatbot_service.dto.RecipeAgentDto;
 
-import com.factory.chatbot_service.service.RecipeAgentClient;
-import com.factory.chatbot_service.dto.RecipeAgentRequest;
-import com.factory.chatbot_service.dto.RecipeAgentResponse;
-import com.factory.chatbot_service.service.RecipeContextResolver;
 import com.factory.chatbot_service.dto.RecipeRecommendationContext;
-import com.factory.chatbot_service.dto.RecipeRecommendRequest;
-import com.factory.chatbot_service.dto.RecipeRecommendResponse;
 import com.factory.chatbot_service.dto.SensorContext;
 import com.factory.chatbot_service.dto.ExpectedEffect;
 import com.factory.chatbot_service.dto.RecipeParameter;
 import com.factory.chatbot_service.dto.RecipeParameterValue;
 import com.factory.chatbot_service.dto.RecipeHistoryCase;
-import com.factory.chatbot_service.service.RecipeHistoryProvider;
-import com.factory.chatbot_service.service.SensorContextProvider;
 import com.factory.chatbot_service.dto.SensorSnapshot;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -50,7 +44,7 @@ public class RecipeRecommendationService {
         this.recipeSafetyService = recipeSafetyService;
     }
 
-    public RecipeRecommendResponse recommend(RecipeRecommendRequest request) {
+    public RecipeRecommendDto.Response recommend(RecipeRecommendDto.Request request) {
         log.info("Starting Bedrock-backed recipe recommendation: equipmentId={}, defectType={}",
                 request == null ? null : request.getEquipmentId(),
                 request == null ? null : request.getDefectType());
@@ -60,7 +54,7 @@ public class RecipeRecommendationService {
             return resolved.response;
         }
 
-        RecipeAgentResponse agentResponse;
+        RecipeAgentDto.Response agentResponse;
         try {
             log.info("Invoking Bedrock Agent for recipe recommendation: equipmentId={}, processId={}, productId={}, histories={}",
                     resolved.context.getEquipmentId(),
@@ -68,7 +62,7 @@ public class RecipeRecommendationService {
                     resolved.context.getProductId(),
                     resolved.histories.size());
             agentResponse = recipeAgentClient.recommend(
-                    RecipeAgentRequest.from(
+                    RecipeAgentDto.Request.from(
                             request,
                             resolved.context,
                             resolved.sensorSnapshot,
@@ -78,7 +72,7 @@ public class RecipeRecommendationService {
             log.info("Bedrock Agent returned recipe recommendation: status={}", agentResponse.getStatus());
         } catch (Exception e) {
             log.warn("Bedrock Agent recipe recommendation failed: {}", e.getMessage());
-            return RecipeRecommendResponse.builder()
+            return RecipeRecommendDto.Response.builder()
                     .status("AGENT_UNAVAILABLE")
                     .summary("Bedrock Agent could not generate a recommendation. Check agent settings, AWS credentials, and network access.")
                     .recommendedRecipe(null)
@@ -92,18 +86,18 @@ public class RecipeRecommendationService {
         return buildValidatedResponse(agentResponse, resolved.context, resolved.sensorSnapshot, resolved.histories);
     }
 
-    public RecipeRecommendResponse recommendForActionGroup(RecipeRecommendRequest request) {
+    public RecipeRecommendDto.Response recommendForActionGroup(RecipeRecommendDto.Request request) {
         return recommendLocally(request);
     }
 
-    public RecipeRecommendResponse recommendLocally(RecipeRecommendRequest request) {
+    public RecipeRecommendDto.Response recommendLocally(RecipeRecommendDto.Request request) {
         // /api/chat의 기본 경로: RDS/S3 데이터를 모으고 백엔드에서 추천 범위를 계산한다.
         ResolvedRecommendationInput resolved = resolveRecommendationInput(request);
         if (resolved.response != null) {
             return resolved.response;
         }
 
-        RecipeAgentResponse localResponse = buildLocalRecommendation(
+        RecipeAgentDto.Response localResponse = buildLocalRecommendation(
                 resolved.context,
                 resolved.sensorSnapshot,
                 resolved.histories
@@ -112,9 +106,9 @@ public class RecipeRecommendationService {
         return buildValidatedResponse(localResponse, resolved.context, resolved.sensorSnapshot, resolved.histories);
     }
 
-    private ResolvedRecommendationInput resolveRecommendationInput(RecipeRecommendRequest request) {
+    private ResolvedRecommendationInput resolveRecommendationInput(RecipeRecommendDto.Request request) {
         if (request == null || !StringUtils.hasText(request.getEquipmentId())) {
-            return ResolvedRecommendationInput.withResponse(RecipeRecommendResponse.builder()
+            return ResolvedRecommendationInput.withResponse(RecipeRecommendDto.Response.builder()
                     .status("INSUFFICIENT_CONTEXT")
                     .summary("equipmentId is required to resolve production context and recommend a recipe.")
                     .recommendedRecipe(null)
@@ -131,7 +125,7 @@ public class RecipeRecommendationService {
         RecipeRecommendationContext context = recipeContextResolver.resolve(request);
 
         if (!context.hasRequiredRecommendationContext()) {
-            return ResolvedRecommendationInput.withResponse(RecipeRecommendResponse.builder()
+            return ResolvedRecommendationInput.withResponse(RecipeRecommendDto.Response.builder()
                     .status("INSUFFICIENT_CONTEXT")
                     .summary("The backend could not resolve enough production context to ask the agent for a recipe recommendation.")
                     .recommendedRecipe(null)
@@ -162,8 +156,8 @@ public class RecipeRecommendationService {
         return new ResolvedRecommendationInput(context, sensorSnapshot, histories, null);
     }
 
-    private RecipeRecommendResponse buildValidatedResponse(
-            RecipeAgentResponse agentResponse,
+    private RecipeRecommendDto.Response buildValidatedResponse(
+            RecipeAgentDto.Response agentResponse,
             RecipeRecommendationContext context,
             SensorSnapshot sensorSnapshot,
             List<RecipeHistoryCase> histories
@@ -180,7 +174,7 @@ public class RecipeRecommendationService {
             );
             warnings.add("The AI recommendation was excluded from direct use because it did not pass backend safety validation.");
 
-            return RecipeRecommendResponse.builder()
+            return RecipeRecommendDto.Response.builder()
                     .status("UNSAFE_RECOMMENDATION")
                     .summary("Bedrock Agent recommended a recipe, but backend safety validation rejected it.")
                     .recommendedRecipe(agentResponse.getRecommendedRecipe())
@@ -195,12 +189,12 @@ public class RecipeRecommendationService {
         return toResponse(agentResponse, context, sensorSnapshot, histories);
     }
 
-    private RecipeAgentResponse buildLocalRecommendation(
+    private RecipeAgentDto.Response buildLocalRecommendation(
             RecipeRecommendationContext context,
             SensorSnapshot sensorSnapshot,
             List<RecipeHistoryCase> histories
     ) {
-        RecipeAgentResponse response = new RecipeAgentResponse();
+        RecipeAgentDto.Response response = new RecipeAgentDto.Response();
         response.setEvidence(new ArrayList<>());
         response.setWarnings(new ArrayList<>());
 
@@ -245,7 +239,7 @@ public class RecipeRecommendationService {
     }
 
     private String resolveSensorEquipmentId(
-            RecipeRecommendRequest request,
+            RecipeRecommendDto.Request request,
             RecipeRecommendationContext context
     ) {
         SensorContext sensorContext = request.getSensorContext();
@@ -277,13 +271,13 @@ public class RecipeRecommendationService {
                 .build();
     }
 
-    private RecipeRecommendResponse toResponse(
-            RecipeAgentResponse agentResponse,
+    private RecipeRecommendDto.Response toResponse(
+            RecipeAgentDto.Response agentResponse,
             RecipeRecommendationContext context,
             SensorSnapshot sensorSnapshot,
             List<RecipeHistoryCase> histories
     ) {
-        return RecipeRecommendResponse.builder()
+        return RecipeRecommendDto.Response.builder()
                 .status(agentResponse.getStatus())
                 .summary(agentResponse.getSummary())
                 .recommendedRecipe(agentResponse.getRecommendedRecipe())
@@ -296,7 +290,7 @@ public class RecipeRecommendationService {
     }
 
     private List<String> mergeEvidence(
-            RecipeAgentResponse agentResponse,
+            RecipeAgentDto.Response agentResponse,
             RecipeRecommendationContext context,
             SensorSnapshot sensorSnapshot,
             List<RecipeHistoryCase> histories,
@@ -390,7 +384,7 @@ public class RecipeRecommendationService {
         return StringUtils.hasText(first) ? first : second;
     }
 
-    private List<String> validateAgentRecommendation(RecipeAgentResponse agentResponse) {
+    private List<String> validateAgentRecommendation(RecipeAgentDto.Response agentResponse) {
         if (agentResponse.getRecommendedParameters() != null
                 && !agentResponse.getRecommendedParameters().isEmpty()) {
             return recipeSafetyService.validateParameters(agentResponse.getRecommendedParameters());
@@ -774,9 +768,9 @@ public class RecipeRecommendationService {
             RecipeRecommendationContext context,
             SensorSnapshot sensorSnapshot,
             List<RecipeHistoryCase> histories,
-            RecipeRecommendResponse response
+            RecipeRecommendDto.Response response
     ) {
-        private static ResolvedRecommendationInput withResponse(RecipeRecommendResponse response) {
+        private static ResolvedRecommendationInput withResponse(RecipeRecommendDto.Response response) {
             return new ResolvedRecommendationInput(null, null, List.of(), response);
         }
     }

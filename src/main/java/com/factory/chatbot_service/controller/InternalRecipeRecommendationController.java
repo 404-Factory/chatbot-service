@@ -1,7 +1,6 @@
 package com.factory.chatbot_service.controller;
+import com.factory.chatbot_service.dto.RecipeRecommendDto;
 
-import com.factory.chatbot_service.dto.RecipeRecommendRequest;
-import com.factory.chatbot_service.dto.RecipeRecommendResponse;
 import com.factory.chatbot_service.service.RecipeRecommendationService;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -19,7 +18,7 @@ public class InternalRecipeRecommendationController {
     }
 
     @PostMapping("/recommend")
-    public RecipeRecommendResponse recommend(@RequestBody RecipeRecommendRequest request) {
+    public RecipeRecommendDto.Response recommend(@RequestBody RecipeRecommendDto.Request request) {
         return recipeRecommendationService.recommendForActionGroup(request);
     }
 }

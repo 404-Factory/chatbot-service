@@ -1,12 +1,11 @@
 package com.factory.chatbot_service.controller;
+import com.factory.chatbot_service.dto.ChatDto;
 
 import com.factory.chatbot_service.entity.ChatMessage;
 import com.factory.chatbot_service.entity.ChatRoom;
 import com.factory.chatbot_service.service.BedrockAgentService;
 import com.factory.chatbot_service.service.MainInsightService;
 import com.factory.chatbot_service.service.RecipeChatService;
-import com.factory.chatbot_service.dto.ChatRequest;
-import com.factory.chatbot_service.dto.ChatResponse;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -62,8 +61,8 @@ public class ChatbotController {
     }
 
     @PostMapping("/recipe")
-    public ResponseEntity<ChatResponse> queryRecipeAI(@RequestBody ChatRequest request) {
-        ChatResponse response = recipeChatService.chat(request);
+    public ResponseEntity<ChatDto.Response> queryRecipeAI(@RequestBody ChatDto.Request request) {
+        ChatDto.Response response = recipeChatService.chat(request);
         return ResponseEntity.ok(response);
     }
 }

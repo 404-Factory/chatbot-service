@@ -1,12 +1,11 @@
 package com.factory.chatbot_service.service;
+import com.factory.chatbot_service.dto.RecipeRecommendDto;
+import com.factory.chatbot_service.dto.LlmRecommendationDto;
 
-import com.factory.chatbot_service.dto.LlmRecommendedParameter;
-import com.factory.chatbot_service.dto.LlmRecipeRecommendation;
 
 import com.factory.chatbot_service.dto.ExpectedEffect;
 import com.factory.chatbot_service.dto.RecipeParameter;
 import com.factory.chatbot_service.dto.RecipeParameterValue;
-import com.factory.chatbot_service.dto.RecipeRecommendResponse;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -28,8 +27,8 @@ public class RecommendationSelectionService {
     }
 
     public SelectionResult select(
-            RecipeRecommendResponse backendRecommendation,
-            LlmRecipeRecommendation candidate
+            RecipeRecommendDto.Response backendRecommendation,
+            LlmRecommendationDto.Recommendation candidate
     ) {
         List<String> violations = validationService.validate(
                 backendRecommendation,
@@ -45,7 +44,7 @@ public class RecommendationSelectionService {
             );
         }
 
-        RecipeRecommendResponse annotatedBackend = annotateBackendRecommendation(
+        RecipeRecommendDto.Response annotatedBackend = annotateBackendRecommendation(
                 backendRecommendation,
                 candidate,
                 violations
@@ -53,9 +52,9 @@ public class RecommendationSelectionService {
         return new SelectionResult(annotatedBackend, "BACKEND_ONLY_LLM_REJECTED", violations);
     }
 
-    private RecipeRecommendResponse adoptCandidate(
-            RecipeRecommendResponse backendRecommendation,
-            LlmRecipeRecommendation candidate
+    private RecipeRecommendDto.Response adoptCandidate(
+            RecipeRecommendDto.Response backendRecommendation,
+            LlmRecommendationDto.Recommendation candidate
     ) {
         List<RecipeParameterValue> adoptedParameters = mergeCandidateParameters(
                 backendRecommendation.getRecommendedParameters(),
@@ -83,9 +82,9 @@ public class RecommendationSelectionService {
         );
     }
 
-    private RecipeRecommendResponse annotateBackendRecommendation(
-            RecipeRecommendResponse backendRecommendation,
-            LlmRecipeRecommendation candidate,
+    private RecipeRecommendDto.Response annotateBackendRecommendation(
+            RecipeRecommendDto.Response backendRecommendation,
+            LlmRecommendationDto.Recommendation candidate,
             List<String> violations
     ) {
         List<String> evidence = new ArrayList<>(safeList(backendRecommendation.getEvidence()));
@@ -113,9 +112,9 @@ public class RecommendationSelectionService {
 
     private List<RecipeParameterValue> mergeCandidateParameters(
             List<RecipeParameterValue> backendParameters,
-            List<LlmRecommendedParameter> candidateParameters
+            List<LlmRecommendationDto.Parameter> candidateParameters
     ) {
-        Map<String, LlmRecommendedParameter> candidateByName = safeList(candidateParameters).stream()
+        Map<String, LlmRecommendationDto.Parameter> candidateByName = safeList(candidateParameters).stream()
                 .filter(parameter -> StringUtils.hasText(parameter.getName()))
                 .collect(Collectors.toMap(
                         parameter -> normalize(parameter.getName()),
@@ -125,7 +124,7 @@ public class RecommendationSelectionService {
 
         return safeList(backendParameters).stream()
                 .map(parameter -> {
-                    LlmRecommendedParameter candidate = candidateByName.get(normalize(parameter.getName()));
+                    LlmRecommendationDto.Parameter candidate = candidateByName.get(normalize(parameter.getName()));
                     if (candidate == null) {
                         return parameter;
                     }
@@ -143,16 +142,16 @@ public class RecommendationSelectionService {
                 .toList();
     }
 
-    private void appendCandidateReasons(List<String> evidence, LlmRecipeRecommendation candidate) {
-        for (LlmRecommendedParameter parameter : safeList(candidate.getRecommendedParameters())) {
+    private void appendCandidateReasons(List<String> evidence, LlmRecommendationDto.Recommendation candidate) {
+        for (LlmRecommendationDto.Parameter parameter : safeList(candidate.getRecommendedParameters())) {
             if (parameter != null && StringUtils.hasText(parameter.getReason())) {
                 evidence.add("LLM candidate reason for " + parameter.getName() + ": " + parameter.getReason());
             }
         }
     }
 
-    private RecipeRecommendResponse copyResponse(
-            RecipeRecommendResponse original,
+    private RecipeRecommendDto.Response copyResponse(
+            RecipeRecommendDto.Response original,
             String status,
             String summary,
             RecipeParameter recommendedRecipe,
@@ -162,7 +161,7 @@ public class RecommendationSelectionService {
             List<String> warnings,
             Double confidence
     ) {
-        return RecipeRecommendResponse.builder()
+        return RecipeRecommendDto.Response.builder()
                 .status(status)
                 .summary(summary)
                 .recommendedRecipe(recommendedRecipe)
@@ -199,14 +198,14 @@ public class RecommendationSelectionService {
     @Getter
     public static class SelectionResult {
 
-        private final RecipeRecommendResponse recommendation;
+        private final RecipeRecommendDto.Response recommendation;
 
         private final String source;
 
         private final List<String> violations;
 
         public SelectionResult(
-                RecipeRecommendResponse recommendation,
+                RecipeRecommendDto.Response recommendation,
                 String source,
                 List<String> violations
         ) {
