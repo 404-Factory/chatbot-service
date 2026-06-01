@@ -33,7 +33,7 @@ public class ChatbotController {
         return ResponseEntity.ok(Map.of("reply", aiResponse));
     }
 
-    @PostMapping("/message/save")
+    @PostMapping("/message")
     public ResponseEntity<Void> saveMessageDirectly(@RequestBody Map<String, String> request) {
         String roomId = request.get("roomId");
         String role = request.get("role");
