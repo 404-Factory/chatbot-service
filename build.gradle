@@ -20,6 +20,8 @@ repositories {
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.boot:spring-boot-starter-jdbc'
 	implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.5'
 	compileOnly 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
@@ -33,7 +35,10 @@ dependencies {
 	testAnnotationProcessor 'org.projectlombok:lombok'
 
 
-	implementation 'software.amazon.awssdk:bedrockagentruntime:2.25.0'
+	implementation 'software.amazon.awssdk:bedrockagentruntime:2.26.27'
+	implementation 'software.amazon.awssdk:bedrockruntime:2.26.27'
+	implementation 'software.amazon.awssdk:s3:2.26.27'
+	implementation 'software.amazon.awssdk:netty-nio-client:2.26.27'
 	implementation 'me.paulschwarz:spring-dotenv:4.0.0'
 
 
