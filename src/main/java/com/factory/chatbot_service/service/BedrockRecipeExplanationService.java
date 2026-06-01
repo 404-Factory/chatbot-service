@@ -26,7 +26,9 @@ public class BedrockRecipeExplanationService {
     @Value("${chatbot.bedrock.enable-trace:false}")
     private boolean enableTrace;
 
-    public BedrockRecipeExplanationService(BedrockAgentRuntimeAsyncClient bedrockAgentRuntimeAsyncClient) {
+    public BedrockRecipeExplanationService(
+            @org.springframework.beans.factory.annotation.Qualifier("recipeBedrockAgentClient") BedrockAgentRuntimeAsyncClient bedrockAgentRuntimeAsyncClient
+    ) {
         this.bedrockAgentRuntimeAsyncClient = bedrockAgentRuntimeAsyncClient;
     }
 
