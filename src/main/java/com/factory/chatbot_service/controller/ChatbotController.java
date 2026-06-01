@@ -4,6 +4,9 @@ import com.factory.chatbot_service.entity.ChatMessage;
 import com.factory.chatbot_service.entity.ChatRoom;
 import com.factory.chatbot_service.service.BedrockAgentService;
 import com.factory.chatbot_service.service.MainInsightService;
+import com.factory.chatbot_service.service.RecipeChatService;
+import com.factory.chatbot_service.dto.ChatRequest;
+import com.factory.chatbot_service.dto.ChatResponse;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +20,7 @@ import java.util.Map;
 @CrossOrigin(origins = "*")
 public class ChatbotController {
     private final MainInsightService mainInsightService;
+    private final RecipeChatService recipeChatService;
 
     @PostMapping("/insight")
     public ResponseEntity<Map<String, String>> queryInsightAI(@RequestBody Map<String, Object> request) {
@@ -55,5 +59,11 @@ public class ChatbotController {
     public ResponseEntity<Void> deleteRoom(@PathVariable String roomId) {
         mainInsightService.deleteRoom(roomId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/recipe")
+    public ResponseEntity<ChatResponse> queryRecipeAI(@RequestBody ChatRequest request) {
+        ChatResponse response = recipeChatService.chat(request);
+        return ResponseEntity.ok(response);
     }
 }

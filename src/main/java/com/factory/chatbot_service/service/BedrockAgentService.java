@@ -8,6 +8,7 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.bedrockagentruntime.BedrockAgentRuntimeAsyncClient;
 import software.amazon.awssdk.services.bedrockagentruntime.model.InvokeAgentRequest;
@@ -24,29 +25,10 @@ public class BedrockAgentService {
     @Value("${aws.bedrock.agent-alias-id}")
     private String agentAliasId;
 
-    private static AwsCredentialsProvider getCredentialsProvider() {
-        String accessKey = System.getProperty("AWS_ACCESS_KEY_ID");
-        String secretKey = System.getProperty("AWS_SECRET_ACCESS_KEY");
-        
-        if (accessKey == null || accessKey.trim().isEmpty()) {
-            accessKey = System.getenv("AWS_ACCESS_KEY_ID");
-        }
-        if (secretKey == null || secretKey.trim().isEmpty()) {
-            secretKey = System.getenv("AWS_SECRET_ACCESS_KEY");
-        }
-
-        if (accessKey != null && !accessKey.trim().isEmpty() && 
-            secretKey != null && !secretKey.trim().isEmpty()) {
-            return StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey.trim(), secretKey.trim()));
-        }
-        return DefaultCredentialsProvider.create();
-    }
-
-    public BedrockAgentService(@Value("${aws.region}") String region) {
-        this.runtimeAsyncClient = BedrockAgentRuntimeAsyncClient.builder()
-            .region(Region.of(region))
-            .credentialsProvider(getCredentialsProvider())
-            .build();
+    public BedrockAgentService(
+            @Qualifier("insightBedrockAgentClient") BedrockAgentRuntimeAsyncClient runtimeAsyncClient
+    ) {
+        this.runtimeAsyncClient = runtimeAsyncClient;
     }
 
     @PostConstruct

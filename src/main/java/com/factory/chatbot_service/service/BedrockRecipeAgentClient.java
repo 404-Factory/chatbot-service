@@ -14,6 +14,7 @@ import java.util.concurrent.TimeoutException;
 import org.springframework.beans.factory.annotation.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import software.amazon.awssdk.services.bedrockagentruntime.BedrockAgentRuntimeAsyncClient;
@@ -41,7 +42,7 @@ public class BedrockRecipeAgentClient implements RecipeAgentClient {
     private long chatTimeoutSeconds;
 
     public BedrockRecipeAgentClient(
-            BedrockAgentRuntimeAsyncClient bedrockAgentRuntimeAsyncClient,
+            @Qualifier("recipeBedrockAgentClient") BedrockAgentRuntimeAsyncClient bedrockAgentRuntimeAsyncClient,
             ObjectMapper objectMapper
     ) {
         this.bedrockAgentRuntimeAsyncClient = bedrockAgentRuntimeAsyncClient;
