@@ -153,19 +153,67 @@ ChatbotServiceApplication.java  # 앱 진입점, .env 파일 로드
 
 - `RecipeRecommendationService.recommend()`는 두 가지 추천 경로를 모두 지원합니다.
   1. **Bedrock Agent 추천 경로**: `RecipeAgentClient`가 구성한 요청을 Bedrock으로 전송하고, AI가 생성한 레시피 조정 결과를 수신합니다.
+     - Bedrock 응답도 `RecipeSafetyService`를 통해 검증되며, 안전 기준을 벗어나면 최종 결과는 `UNSAFE_RECOMMENDATION`이 됩니다.
   2. **로컬 추천 경로**: `recommendLocally()`는 백엔드에서 안전하게 추천 값을 계산합니다.
 
 - 로컬 추천은 다음 방식으로 동작합니다:
-  - 현재 레시피 파라미터와 최신 센서 스냅샷을 비교
-  - 역사적 사례와 센서 기준 범위를 바탕으로 `RecipeParameterValue`를 조정
-  - 안전 검증(`RecipeSafetyService`)을 거쳐 권장값을 확정
+  - `RecipeRecommendationContext`에서 현재 레시피 파라미터(`currentRecipeParameters`)를 가져옵니다.
+  - 각 파라미터에 대해 `sensorSnapshot`의 최신 S3 센서 평균값과 `RecipeHistoryCase` 과거 히스토리를 동시에 참조합니다.
+  - 기본 기준은 RDS에서 내려오는 안전 범위(`min`, `max`)이며, 이 범위 바깥으로 추천값이 벗어나지 않도록 보정합니다.
+  - `recommendParameter()`는 실제 추천 범위를 계산할 때 아래 3가지를 반영합니다:
+    * `baseMin/baseMax` : RDS 안전 범위
+    * `sensorAverage` : S3 센서 평균값
+    * `historicalTargetRange` : 과거 low-defect 레시피 히스토리에서 추출한 추천 범위
+  - 최종 `recommendedMin`/`recommendedMax`는 안전 범위에서 출발해 과거 히스토리 쪽으로 최대 65% 이동하고, 최신 센서 평균값을 중심으로 추가 조정합니다.
+  - `recommendedValue`는 최종 추천 범위의 중앙값으로 설정하며, 현재값 대비 한 번에 너무 급격하게 변하지 않도록 `단계 제한(step limit)`을 적용합니다.
+
+- `recommendLocally()`가 `currentRecipeParameters`를 찾지 못하면, 대신 `currentRecipe`의 개별 필드(temperature, pressure, speed, duration)를 `recommendFixedRecipe()`로 보정합니다.
+  - 이 보정은 기본값을 현재 레시피 값으로 삼고, 과거 목표값과 센서 평균을 최대 65%까지 점진적으로 반영합니다.
+  - 결과값은 `160~190°C`, `2.0~3.0`, `90~140`, `30~120` 같은 고정 안전 구간 안에 다시 클램프됩니다.
+
+- 로컬 추천 결과에는 따로 `evidence`와 `warnings`가 생성됩니다.
+  - evidence: `baseSensorLimit`, `recommendedSensorRange`, `recommendedSensorCenter`, `sensorAverage`, `historical low-defect range` 정보
+  - warnings: S3 스냅샷 부재 또는 과거 히스토리가 부족할 때 신뢰도 제한 메시지
 
 ### 4. 추천 후보 검증 및 최종 선택
 
-- `RecipeChatService`는 먼저 백엔드 추천을 기준으로 사용합니다.
-- 백엔드 추천이 `SUCCESS`일 때만 `BedrockRecipeCandidateService`가 LLM 후보를 생성합니다.
-- 이후 `RecommendationSelectionService`가 백엔드 추천과 LLM 후보를 비교하여 더 안전하고 신뢰 가능한 결과를 선택합니다.
-- 최종 결과는 `BedrockRecipeAnswerService`가 자연어 설명으로 변환한 뒤 `ChatDto.Response`로 반환됩니다.
+- `RecipeChatService`는 먼저 백엔드 로컬 추천을 기준으로 사용합니다.
+- 백엔드 추천이 `SUCCESS`일 때만 `BedrockRecipeCandidateService`가 Bedrock 모델을 호출하여 LLM 후보를 생성합니다.
+- 후보 생성 시 `BedrockRecipeCandidateService`는 다음 규칙을 명시합니다:
+  - JSON 객체만 반환
+  - 추천 후보는 `recommendedMin`, `recommendedMax`, `recommendedValue`만 제안
+  - 기존 파라미터 이름을 그대로 사용하고 신규 파라미터를 추가하지 않음
+  - 값은 백엔드 안전 범위 안에 있어야 함
+  - `status`, `summary`, `recommendedParameters`, `evidence`, `warnings`, `confidence`만 포함
+- `RecommendationSelectionService`는 `LlmCandidateValidationService`를 통해 LLM 후보를 엄격히 검증합니다.
+
+#### LLM 후보 검증 기준
+
+- 후보가 `SUCCESS` 상태인지 확인
+- 후보의 `confidence`가 최소 `0.7` 이상인지 확인
+- 백엔드 추천에 존재하는 파라미터 이름과 일치하는지 확인
+- 각 후보 파라미터의 `recommendedMin`, `recommendedMax`, `recommendedValue`가 모두 존재하는지 확인
+- `recommendedMin`/`recommendedMax`가 백엔드 안전 범위(`min`/`max`) 밖으로 벗어나지 않는지 확인
+- `recommendedValue`가 후보 범위 안에 있는지 검증
+- 범위 변경이 너무 공격적이지 않은지 검사
+  - 백엔드 안전 범위 전체 너비의 `35%` 이내로만 하한/상한을 이동하도록 제한
+
+#### 후보 채택 로직
+
+- 후보가 검증을 통과하면 `RecommendationSelectionService`는 `adoptCandidate()`를 통해 후보 파라미터를 백엔드 추천에 병합합니다.
+- 이때 반환 결과는 다음을 유지합니다:
+  - 최종 상태는 `SUCCESS`
+  - 백엔드 핵심 요약과 기대 효과는 유지
+  - 후보가 제공한 `evidence`와 `warnings`를 추가
+  - 선택한 후보의 `confidence`를 사용
+- 후보가 검증에 실패하면 백엔드 단독 추천 결과를 사용하고, 거부 사유를 `warnings`에 추가합니다.
+- 결과 원천은 `LLM_VALIDATED` 또는 `BACKEND_ONLY_LLM_REJECTED`로 분류됩니다.
+
+#### Bedrock 이후 자연어 설명
+
+- `BedrockRecipeAnswerService`는 최종 추천 JSON을 Bedrock 모델로 다시 한번 설명 요청합니다.
+- 이 단계는 숫자를 다시 계산하지 않고, 이미 결정된 추천 결과를 보다 읽기 쉬운 한국어 답변으로 변환하는 역할만 합니다.
+- 따라서 실제 추천값의 신뢰성과 안전성은 로컬 계산 + 후보 검증 단계에서 결정됩니다.
 
 ### 5. REST API와 내부 Action Group
 
