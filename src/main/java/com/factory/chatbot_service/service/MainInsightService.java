@@ -32,7 +32,7 @@ public class MainInsightService {
         String q = question.toLowerCase().replaceAll("\\s+", "");
         
         String[] domainKeywords = {
-            "공정", "설비", "레시피", "장비", "온도", "압력", "센서", "농도", "속도", "베이크", "노광", "식각", "세정", "증착", 
+            "공정", "설비", "레시피", "장비", "온도", "압력", "센서", "농도", "속도", "베이크", "노광", "식각", "세정", "증착", "클리어",
             "이탈", "불량", "defect", "anomaly", "lot", "chamber", "spin", "eqp", "photo", "etch", "cleaning", "deposition", 
             "nelson", "rule", "현황", "리포트", "데이터", "상태", "조회", "분석", "안녕", "hello", "hi", "추천"
         };
