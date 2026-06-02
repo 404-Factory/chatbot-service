@@ -19,10 +19,30 @@ import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 @Configuration
 public class AwsBedrockConfig {
 
+    @Value("${aws.region:ap-northeast-2}")
+    private String awsRegion;
+
+    // Unified timeout settings for Bedrock Agent Runtime clients
+    @Value("${chatbot.bedrock.api-call-timeout-seconds:180}")
+    private long apiCallTimeout;
+
+    @Value("${chatbot.bedrock.api-call-attempt-timeout-seconds:150}")
+    private long apiCallAttemptTimeout;
+
+    @Value("${chatbot.bedrock.http-read-timeout-seconds:150}")
+    private long httpReadTimeout;
+
+    @Value("${chatbot.bedrock.http-connection-timeout-seconds:10}")
+    private long httpConnectionTimeout;
+
+    // Timeout settings for bedrock runtime client
+    @Value("${chatbot.bedrock.explanation-timeout-seconds:12}")
+    private long explanationTimeout;
+
     private AwsCredentialsProvider getCredentialsProvider() {
         String accessKey = System.getProperty("AWS_ACCESS_KEY_ID");
         String secretKey = System.getProperty("AWS_SECRET_ACCESS_KEY");
-        
+
         if (accessKey == null || accessKey.trim().isEmpty()) {
             accessKey = System.getenv("AWS_ACCESS_KEY_ID");
         }
@@ -30,34 +50,28 @@ public class AwsBedrockConfig {
             secretKey = System.getenv("AWS_SECRET_ACCESS_KEY");
         }
 
-        if (accessKey != null && !accessKey.trim().isEmpty() && 
-            secretKey != null && !secretKey.trim().isEmpty()) {
+        if (accessKey != null && !accessKey.trim().isEmpty() &&
+                secretKey != null && !secretKey.trim().isEmpty()) {
             return StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey.trim(), secretKey.trim()));
         }
         return DefaultCredentialsProvider.create();
     }
 
     @Bean(name = "recipeBedrockAgentClient")
-    public BedrockAgentRuntimeAsyncClient recipeBedrockAgentClient(
-            @Value("${chatbot.aws.region}") String region,
-            @Value("${chatbot.bedrock.api-call-timeout-seconds:180}") long apiCallTimeoutSeconds,
-            @Value("${chatbot.bedrock.api-call-attempt-timeout-seconds:150}") long apiCallAttemptTimeoutSeconds,
-            @Value("${chatbot.bedrock.http-read-timeout-seconds:150}") long httpReadTimeoutSeconds,
-            @Value("${chatbot.bedrock.http-connection-timeout-seconds:10}") long httpConnectionTimeoutSeconds
-    ) {
+    public BedrockAgentRuntimeAsyncClient recipeBedrockAgentClient() {
         SdkAsyncHttpClient httpClient = NettyNioAsyncHttpClient.builder()
-                .connectionTimeout(Duration.ofSeconds(httpConnectionTimeoutSeconds))
-                .readTimeout(Duration.ofSeconds(httpReadTimeoutSeconds))
-                .writeTimeout(Duration.ofSeconds(httpReadTimeoutSeconds))
+                .connectionTimeout(Duration.ofSeconds(httpConnectionTimeout))
+                .readTimeout(Duration.ofSeconds(httpReadTimeout))
+                .writeTimeout(Duration.ofSeconds(httpReadTimeout))
                 .build();
 
         ClientOverrideConfiguration overrideConfiguration = ClientOverrideConfiguration.builder()
-                .apiCallTimeout(Duration.ofSeconds(apiCallTimeoutSeconds))
-                .apiCallAttemptTimeout(Duration.ofSeconds(apiCallAttemptTimeoutSeconds))
+                .apiCallTimeout(Duration.ofSeconds(apiCallTimeout))
+                .apiCallAttemptTimeout(Duration.ofSeconds(apiCallAttemptTimeout))
                 .build();
 
         return BedrockAgentRuntimeAsyncClient.builder()
-                .region(Region.of(region))
+                .region(Region.of(awsRegion))
                 .credentialsProvider(getCredentialsProvider())
                 .httpClient(httpClient)
                 .overrideConfiguration(overrideConfiguration)
@@ -65,22 +79,20 @@ public class AwsBedrockConfig {
     }
 
     @Bean(name = "insightBedrockAgentClient")
-    public BedrockAgentRuntimeAsyncClient insightBedrockAgentClient(
-            @Value("${aws.region:ap-northeast-2}") String region
-    ) {
+    public BedrockAgentRuntimeAsyncClient insightBedrockAgentClient() {
         SdkAsyncHttpClient httpClient = NettyNioAsyncHttpClient.builder()
-                .connectionTimeout(Duration.ofSeconds(10))
-                .readTimeout(Duration.ofSeconds(60))
-                .writeTimeout(Duration.ofSeconds(60))
+                .connectionTimeout(Duration.ofSeconds(httpConnectionTimeout))
+                .readTimeout(Duration.ofSeconds(httpReadTimeout))
+                .writeTimeout(Duration.ofSeconds(httpReadTimeout))
                 .build();
 
         ClientOverrideConfiguration overrideConfiguration = ClientOverrideConfiguration.builder()
-                .apiCallTimeout(Duration.ofSeconds(70))
-                .apiCallAttemptTimeout(Duration.ofSeconds(60))
+                .apiCallTimeout(Duration.ofSeconds(apiCallTimeout))
+                .apiCallAttemptTimeout(Duration.ofSeconds(apiCallAttemptTimeout))
                 .build();
 
         return BedrockAgentRuntimeAsyncClient.builder()
-                .region(Region.of(region))
+                .region(Region.of(awsRegion))
                 .credentialsProvider(getCredentialsProvider())
                 .httpClient(httpClient)
                 .overrideConfiguration(overrideConfiguration)
@@ -88,29 +100,23 @@ public class AwsBedrockConfig {
     }
 
     @Bean
-    public BedrockRuntimeClient bedrockRuntimeClient(
-            @Value("${chatbot.aws.region}") String region,
-            @Value("${chatbot.bedrock.explanation-timeout-seconds:12}") long explanationTimeoutSeconds,
-            @Value("${chatbot.bedrock.http-connection-timeout-seconds:5}") long httpConnectionTimeoutSeconds
-    ) {
+    public BedrockRuntimeClient bedrockRuntimeClient() {
         ClientOverrideConfiguration overrideConfiguration = ClientOverrideConfiguration.builder()
-                .apiCallTimeout(Duration.ofSeconds(explanationTimeoutSeconds))
-                .apiCallAttemptTimeout(Duration.ofSeconds(explanationTimeoutSeconds))
+                .apiCallTimeout(Duration.ofSeconds(explanationTimeout))
+                .apiCallAttemptTimeout(Duration.ofSeconds(explanationTimeout))
                 .build();
 
         return BedrockRuntimeClient.builder()
-                .region(Region.of(region))
+                .region(Region.of(awsRegion))
                 .credentialsProvider(getCredentialsProvider())
                 .overrideConfiguration(overrideConfiguration)
                 .build();
     }
 
     @Bean
-    public S3Client s3Client(
-            @Value("${chatbot.aws.region}") String region
-    ) {
+    public S3Client s3Client() {
         return S3Client.builder()
-                .region(Region.of(region))
+                .region(Region.of(awsRegion))
                 .credentialsProvider(getCredentialsProvider())
                 .build();
     }

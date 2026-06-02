@@ -413,7 +413,7 @@ public class RecipeRecommendationService {
                 .name(parameter.getName())
                 .min(min)
                 .max(max)
-                .currentValue(currentValue)
+                .currentValue(sensorAverage != null ? sensorAverage : currentValue)
                 .recommendedMin(recommendedRange.min())
                 .recommendedMax(recommendedRange.max())
                 .recommendedValue(recommendedRange.midpoint())

@@ -33,14 +33,13 @@ aws:
     agent-alias-id: ${AWS_AGENT_ALIAS_ID}
 
 chatbot:
-  aws:
-    region: ap-northeast-2
   s3:
     bucket-name: ${S3_BUCKET_NAME:}
     sensor-latest-key-template: sensor/{equipmentId}/latest.json
     realtime-prefix: ${S3_REALTIME_PREFIX:}
     realtime-lookback-days: ${S3_REALTIME_LOOKBACK_DAYS:3}
     allow-broad-realtime-scan: ${S3_ALLOW_BROAD_REALTIME_SCAN:false}
+
   bedrock:
     agent-id: ${BEDROCK_AGENT_ID:}
     agent-alias-id: ${BEDROCK_AGENT_ALIAS_ID:}
@@ -48,10 +47,10 @@ chatbot:
     enable-trace: ${BEDROCK_AGENT_ENABLE_TRACE:false}
     chat-timeout-seconds: ${BEDROCK_AGENT_CHAT_TIMEOUT_SECONDS:30}
     explanation-timeout-seconds: ${BEDROCK_EXPLANATION_TIMEOUT_SECONDS:12}
-    api-call-timeout-seconds: ${BEDROCK_AGENT_API_CALL_TIMEOUT_SECONDS:35}
-    api-call-attempt-timeout-seconds: ${BEDROCK_AGENT_API_CALL_ATTEMPT_TIMEOUT_SECONDS:30}
-    http-read-timeout-seconds: ${BEDROCK_AGENT_HTTP_READ_TIMEOUT_SECONDS:30}
-    http-connection-timeout-seconds: ${BEDROCK_AGENT_HTTP_CONNECTION_TIMEOUT_SECONDS:5}
+    api-call-timeout-seconds: ${BEDROCK_AGENT_API_CALL_TIMEOUT_SECONDS:180}
+    api-call-attempt-timeout-seconds: ${BEDROCK_AGENT_API_CALL_ATTEMPT_TIMEOUT_SECONDS:150}
+    http-read-timeout-seconds: ${BEDROCK_AGENT_HTTP_READ_TIMEOUT_SECONDS:150}
+    http-connection-timeout-seconds: ${BEDROCK_AGENT_HTTP_CONNECTION_TIMEOUT_SECONDS:10}
   cors:
     allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:*}
 
