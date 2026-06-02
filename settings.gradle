@@ -2,30 +2,20 @@ pluginManagement {
     repositories {
         gradlePluginPortal()
 
-        maven {
-            url = uri("https://maven.pkg.github.com/404-Factory/build-logic")
-            credentials {
-                    // Resolve username from project property or environment, fail fast if missing
-                    def _gprUserProvider = providers
-                                            .gradleProperty("gpr.user")
-                                            .orElse(System.getenv("GITHUB_ACTOR"))
-                    def _username = _gprUserProvider
-                                            .getOrNull()
-                    if (_username == null) {
-                        throw new GradleException("GITHUB_ACTOR must be set in environment")
-                    }
-                    username = _username
+        def gprUserProvider = providers
+                .gradleProperty("gpr.user")
+                .orElse(providers.environmentVariable("GITHUB_ACTOR"))
+        def gprTokenProvider = providers
+                .gradleProperty("gpr.token")
+                .orElse(providers.environmentVariable("GITHUB_TOKEN"))
 
-                    // Resolve token similarly
-                    def _gprTokenProvider = providers
-                                            .gradleProperty("gpr.token")
-                                            .orElse(System.getenv("GITHUB_TOKEN"))
-                    def _password = _gprTokenProvider
-                                            .getOrNull()
-                    if (_password == null) {
-                        throw new GradleException("GITHUB_TOKEN must be set in environment")
-                    }
-                    password = _password
+        if (gprUserProvider.isPresent() && gprTokenProvider.isPresent()) {
+            maven {
+                url = uri("https://maven.pkg.github.com/404-Factory/build-logic")
+                credentials {
+                    username = gprUserProvider.get()
+                    password = gprTokenProvider.get()
+                }
             }
         }
     }
