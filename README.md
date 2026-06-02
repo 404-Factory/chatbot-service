@@ -101,6 +101,97 @@ ChatbotServiceApplication.java  # 앱 진입점, .env 파일 로드
 - `RecipeAgentDto` : Bedrock Agent에 전달되는 추천 컨텍스트
 - `RecipeRecommendationContext`, `SensorContext`, `RecipeHistoryCase` 등 : 추천 의사결정에 필요한 컨텍스트 객체
 
+## AI 답변 흐름: Bedrock Agent 기반 인사이트 생성
+
+### 1. `POST /api/chat/insight` 요청 처리
+
+- `ChatbotController`는 `MainInsightService.getEquipmentAnalysis()`를 호출합니다.
+- `MainInsightService`는 먼저 자연어 질문이 공정/설비/레시피 도메인과 관련 있는지 필터링합니다.
+- `equipmentId`가 없으면 일반적인 질문으로 간주하고 Bedrock Agent에 직접 질문을 전송합니다.
+- `equipmentId`가 있는 경우, `AnomalyLog`와 `DefectInfo`, `EquipmentInfo` 데이터를 조회하여 Bedrock Agent가 분석에 사용할 컨텍스트를 구성합니다.
+- `BedrockAgentService.askInsightAI()`는 구성된 프롬프트를 Bedrock 에이전트로 전달하고, 에이전트가 생성한 분석 결과를 받아옵니다.
+
+### 2. 프롬프트 구성과 컨텍스트
+
+- `MainInsightService`는 최근 이상 로그 데이터를 `AnomalyLogRepository`에서 최대 5건까지 조회합니다.
+- 동일 설비의 불량 데이터(`DefectInfo`)도 함께 불러와, 에이전트가 이상 징후와 불량 인과관계를 해석할 수 있도록 합니다.
+- 프롬프트는 다음 정보를 포함합니다:
+  - 최근 이상 감지 항목과 탐지 규칙
+  - 불량 발생 유형, 발생 공정, 발생 시각
+  - 사용자의 추가 질문
+- 결과적으로 Bedrock Agent는 단순한 챗봇 답변이 아니라, 실제 RDS 기반 공정 분석 데이터를 참고한 진단형 답변을 생성합니다.
+
+### 3. Bedrock Agent와 AWS SDK
+
+- `AwsBedrockConfig`에서 `BedrockAgentRuntimeAsyncClient`와 `BedrockRuntimeClient`를 빈으로 생성합니다.
+- 이 설정은 Bedrock 요청의 타임아웃, 연결 타임아웃, 재시도 관련 값을 제어합니다.
+- AWS 자격 증명은 `.env` 파일 또는 환경 변수에서 불러오고, 없을 경우 `DefaultCredentialsProvider`를 사용합니다.
+- `POST /api/chat/insight` 요청이 성공하면 최종 AI 답변은 `ChatMessage`로 저장되어 채팅 기록에 남습니다.
+
+## 레시피 추천 로직 상세 설명
+
+### 1. 자연어 입력에서 추천 의도 파악
+
+- `POST /api/chat/recipe`는 `RecipeChatService.chat()`에서 처리됩니다.
+- `RecipeChatService`는 메시지에서 설비 ID와 불량 유형을 추출합니다.
+- 주요 역할:
+  - `EQUIPMENT_ID_PATTERN` 정규식을 사용해 `설비 1번`, `EQP-...` 형태를 모두 인식
+  - `defectType` 또는 `불량 유형`을 추출
+  - 추천 의도를 판단하는 키워드를 탐지하여 레시피 추천 요청인지 확인
+- 설비 ID가 없거나 추천 의도가 없으면 명확한 안내 메시지를 반환합니다.
+
+### 2. 추천 컨텍스트 해결
+
+- `RecipeRecommendationService`는 `RecipeContextResolver`를 통해 다음을 이해합니다:
+  - 설비 ID에 대응하는 공정(Process)
+  - 현재 동작 중인 레시피와 파라미터
+  - 해당 제품과 공정에 대한 최근 히스토리
+- `SensorContextProvider`는 `S3` 센서 데이터를 가져와 최신 센서 스냅샷을 구성합니다.
+- `RecipeHistoryProvider`는 과거 유사 사례를 `RDS`에서 조회하여 추천 근거를 만듭니다.
+
+### 3. Bedrock Agent와 로컬 추천 분리
+
+- `RecipeRecommendationService.recommend()`는 두 가지 추천 경로를 모두 지원합니다.
+  1. **Bedrock Agent 추천 경로**: `RecipeAgentClient`가 구성한 요청을 Bedrock으로 전송하고, AI가 생성한 레시피 조정 결과를 수신합니다.
+  2. **로컬 추천 경로**: `recommendLocally()`는 백엔드에서 안전하게 추천 값을 계산합니다.
+
+- 로컬 추천은 다음 방식으로 동작합니다:
+  - 현재 레시피 파라미터와 최신 센서 스냅샷을 비교
+  - 역사적 사례와 센서 기준 범위를 바탕으로 `RecipeParameterValue`를 조정
+  - 안전 검증(`RecipeSafetyService`)을 거쳐 권장값을 확정
+
+### 4. 추천 후보 검증 및 최종 선택
+
+- `RecipeChatService`는 먼저 백엔드 추천을 기준으로 사용합니다.
+- 백엔드 추천이 `SUCCESS`일 때만 `BedrockRecipeCandidateService`가 LLM 후보를 생성합니다.
+- 이후 `RecommendationSelectionService`가 백엔드 추천과 LLM 후보를 비교하여 더 안전하고 신뢰 가능한 결과를 선택합니다.
+- 최종 결과는 `BedrockRecipeAnswerService`가 자연어 설명으로 변환한 뒤 `ChatDto.Response`로 반환됩니다.
+
+### 5. REST API와 내부 Action Group
+
+- `RecipeRecommendationController`는 외부 JSON 요청을 처리하는 정형화된 엔드포인트입니다.
+- `InternalRecipeRecommendationController`는 내부 시스템 또는 Bedrock Action Group에서 직접 사용할 수 있는 추천 API를 제공합니다.
+- 이 두 경로 모두 `RecipeRecommendationService`의 추천 로직을 재사용하므로, 일관된 추천 결과를 유지합니다.
+
+## 시스템 동작 요약
+
+### 인사이트 대화(`POST /api/chat/insight`)
+
+1. 사용자 질문 수신
+2. 도메인 필터링 및 설비 ID 검증
+3. RDS 이상 로그/불량 정보 조회
+4. Bedrock Agent에 컨텍스트와 질문 전달
+5. AI 분석 답변 수신 및 채팅 기록 저장
+
+### 레시피 추천(`POST /api/chat/recipe` 또는 `/api/ai/recipe/recommend`)
+
+1. 자연어에서 설비 ID 및 불량 유형 추출
+2. 추천 의도 판별
+3. 공정/제품/센서/히스토리 컨텍스트 구성
+4. 로컬 추천 계산 또는 Bedrock Agent 추천 수행
+5. 안전 검증 및 후보 선택
+6. 자연어 설명 응답 생성
+
 ## 실행 방법
 
 ### 요구 사항
