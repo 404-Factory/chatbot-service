@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: chatbot-service
+  namespace: chatbot
+spec:
+  selector:
+    app: chatbot-service
+  ports:
+    - port: 8085
+      targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: chatbot-ingress
+  namespace: chatbot
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: sigma
+    alb.ingress.kubernetes.io/group.order: "4"
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /api/chat
+            pathType: Prefix
+            backend:
+              service:
+                name: chatbot-service
+                port:
+                  number: 8085
