@@ -1,10 +1,10 @@
-name: CI/CD
+name: CI/CD Test
 
 on:
   push:
-    branches: [main, dev]
+    branches: [feat/ci]
   pull_request:
-    branches: [main, dev]
+    branches: [feat/ci]
 
 jobs:
   build:
@@ -18,6 +18,7 @@ jobs:
       ecr-registry: ${{ vars.ECR_REGISTRY }}
       java-version: "17"
       pre-build-command: "./gradlew build -x test --no-daemon"
+      push-on-ref: refs/heads/feat/ci
     secrets:
       aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
       aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -25,7 +26,7 @@ jobs:
 
   deploy:
     needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/feat/ci'
     uses: 404-Factory/.github/.github/workflows/reusable-deploy.yml@dev
     permissions:
       contents: read
@@ -36,6 +37,7 @@ jobs:
       image: ${{ needs.build.outputs.image }}
       image-tag: ${{ needs.build.outputs.tag }}
       manifest-dir: k8s
+      namespace: chatbot
     secrets:
       aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
       aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
