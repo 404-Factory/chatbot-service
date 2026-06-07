@@ -36,6 +36,7 @@ jobs:
       image: ${{ needs.build.outputs.image }}
       image-tag: ${{ needs.build.outputs.tag }}
       manifest-dir: k8s
+      namespace: chatbot
     secrets:
       aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
       aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
