@@ -1,0 +1,29 @@
+spring:
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:test;MODE=MariaDB;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+aws:
+  region: ap-northeast-2
+  bedrock:
+    agent-id: dummy-agent-id
+    agent-alias-id: dummy-agent-alias-id
+chatbot:
+  s3:
+    bucket-name: dummy-bucket
+    sensor-latest-key-template: sensor/{equipmentId}/latest.json
+    realtime-prefix: 2026/
+    realtime-lookback-days: 30
+    allow-broad-realtime-scan: false
+  bedrock:
+    agent-id: dummy-agent-id
+    agent-alias-id: dummy-agent-alias-id
+    model-id: dummy-model-id
