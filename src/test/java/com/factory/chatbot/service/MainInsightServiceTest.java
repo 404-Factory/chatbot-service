@@ -41,7 +41,7 @@ class MainInsightServiceTest {
         field.set(target, value);
     }
 
-    private AnomalyLog createAnomalyLog(Long logId, Integer eqId, String param, String rule, String severity) throws Exception {
+    private AnomalyLog createAnomalyLog(Long logId, Long eqId, String param, String rule, String severity) throws Exception {
         AnomalyLog log = new AnomalyLog();
         setPrivateField(log, "logId", logId);
         setPrivateField(log, "equipmentId", eqId);
@@ -51,9 +51,9 @@ class MainInsightServiceTest {
         return log;
     }
 
-    private DefectInfo createDefectInfo(Long defectId, String type, String processName, LocalDateTime occurredTime, Long eqId) throws Exception {
+    private DefectInfo createDefectInfo(Long id, String type, String processName, LocalDateTime occurredTime, Long eqId) throws Exception {
         DefectInfo defect = new DefectInfo();
-        setPrivateField(defect, "defectId", defectId);
+        setPrivateField(defect, "id", id);
         setPrivateField(defect, "defectType", type);
         setPrivateField(defect, "causeProcessName", processName);
         setPrivateField(defect, "occurredTime", occurredTime);
@@ -117,7 +117,7 @@ class MainInsightServiceTest {
 
         when(chatRoomRepository.existsById(roomId)).thenReturn(true);
         when(equipmentInfoRepository.findById(1L)).thenReturn(Optional.of(eqInfo));
-        when(anomalyLogRepository.findTop5ByEquipmentIdOrderByOccurredTimeDesc(equipmentId)).thenReturn(Collections.emptyList());
+        when(anomalyLogRepository.findTop5ByEquipmentIdOrderByOccurredTimeDesc(1L)).thenReturn(Collections.emptyList());
         when(bedrockAgentService.askInsightAI(anyString(), eq(roomId))).thenReturn("Mocked analysis response");
 
         // When
@@ -142,8 +142,8 @@ class MainInsightServiceTest {
         EquipmentInfo eqInfo = createEquipmentInfo(1L, "EQP-CLEANING-001", 100L);
         
         List<AnomalyLog> logs = Arrays.asList(
-                createAnomalyLog(10L, 1, "Temperature", "Rule 1", "HIGH"),
-                createAnomalyLog(11L, 1, "Pressure", "Rule 2", "CRITICAL")
+                createAnomalyLog(10L, 1L, "Temperature", "Rule 1", "HIGH"),
+                createAnomalyLog(11L, 1L, "Pressure", "Rule 2", "CRITICAL")
         );
         List<DefectInfo> defects = Arrays.asList(
                 createDefectInfo(20L, "Scratch", "CLEANING", LocalDateTime.now(), 1L)
@@ -151,7 +151,7 @@ class MainInsightServiceTest {
 
         when(chatRoomRepository.existsById(roomId)).thenReturn(true);
         when(equipmentInfoRepository.findById(1L)).thenReturn(Optional.of(eqInfo));
-        when(anomalyLogRepository.findTop5ByEquipmentIdOrderByOccurredTimeDesc(equipmentId)).thenReturn(logs);
+        when(anomalyLogRepository.findTop5ByEquipmentIdOrderByOccurredTimeDesc(1L)).thenReturn(logs);
         when(defectInfoRepository.findByCauseEquipmentIdOrderByOccurredTimeDesc(1L)).thenReturn(defects);
         when(bedrockAgentService.askInsightAI(anyString(), eq(roomId))).thenReturn("Mocked response with details");
 
