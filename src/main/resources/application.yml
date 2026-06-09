@@ -7,7 +7,7 @@ spring:
 
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
-    url: jdbc:mariadb://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:notification_db}?sslMode=trust
+    url: ${DB_URL:jdbc:mariadb://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:chatbot_db}?sslMode=trust}
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:12345678}
     hikari:
@@ -28,8 +28,8 @@ aws:
   region: ap-northeast-2
   bedrock:
     # 🔍 AWS 관련 ID 정보도 보안을 위해 격리
-    agent-id: ${AWS_AGENT_ID}
-    agent-alias-id: ${AWS_AGENT_ALIAS_ID}
+    agent-id: ${AWS_AGENT_ID:}
+    agent-alias-id: ${AWS_AGENT_ALIAS_ID:}
 
 chatbot:
   s3:
