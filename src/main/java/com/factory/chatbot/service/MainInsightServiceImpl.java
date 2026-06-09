@@ -126,7 +126,7 @@ public class MainInsightServiceImpl implements MainInsightService {
         if (equipmentId == null) {
             aiResponse = bedrockAgentService.askInsightAI(userQuestion, roomId); // 🔍 roomId 추가
         } else {
-            List<AnomalyLog> logs = anomalyLogRepository.findTop5ByEquipmentIdOrderByOccurredTimeDesc(equipmentId);
+            List<AnomalyLog> logs = anomalyLogRepository.findTop5ByEquipmentIdOrderByOccurredTimeDesc(equipmentId.longValue());
             
             StringBuilder promptBuilder = new StringBuilder();
             promptBuilder.append("다음은 가동 중인 설비에서 발생한 실제 RDBMS 데이터입니다.\n\n");

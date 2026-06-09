@@ -6,7 +6,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "anomaly_log") // 실제 DB 테이블명 매핑
+@Table(name = "anomalies") // 실제 DB 테이블명 매핑
 @Getter
 @NoArgsConstructor
 public class AnomalyLog {
@@ -17,7 +17,7 @@ public class AnomalyLog {
     private Long logId;
 
     @Column(name = "equipment_id")
-    private Integer equipmentId;
+    private Long equipmentId;
 
     @Column(name = "recipe_parameter")
     private String recipeParameter;
@@ -35,7 +35,4 @@ public class AnomalyLog {
 
     @Column(name = "anomaly_type")
     private String anomalyType;
-
-    @Column(name = "cause_rule")
-    private Integer causeRule;
 }

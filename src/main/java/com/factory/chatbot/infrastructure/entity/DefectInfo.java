@@ -6,15 +6,15 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "defect_info")
+@Table(name = "defects")
 @Getter
 @NoArgsConstructor
 public class DefectInfo {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "defect_id")
-    private Long defectId;
+    @Column(name = "id")
+    private Long id;
 
     @Column(name = "defect_type")
     private String defectType;
