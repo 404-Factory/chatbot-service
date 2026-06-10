@@ -21,6 +21,7 @@ repositories {
 dependencies {
 	// common modules
 	implementation 'com.factory.common:contract:1.0.7'
+	implementation 'com.factory.common:event:1.0.7'
 	implementation 'com.factory.common:kafka:1.0.7'
 	implementation 'com.factory.common:inbox-jpa:1.0.7'
 	implementation 'com.factory.common:outbox-jpa:1.0.7'
