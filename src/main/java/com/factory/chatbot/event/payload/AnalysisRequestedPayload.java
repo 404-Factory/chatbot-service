@@ -14,4 +14,8 @@ public class AnalysisRequestedPayload implements EventPayload {
     private Long anomalyId;
     private Long equipmentId;
     private String recipeParameter;
+    private String summaryText;
+    private String recommendedAnalysisType;
+    private java.util.List<String> analysisFocus;
+    private String llmPromptHint;
 }

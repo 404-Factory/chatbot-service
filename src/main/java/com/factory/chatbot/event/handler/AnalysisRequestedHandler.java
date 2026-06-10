@@ -85,6 +85,10 @@ public class AnalysisRequestedHandler implements EventHandler<AnalysisRequestedP
                 .detectionReason(anomalyLog.getDetectionReason())
                 .occurredTime(anomalyLog.getOccurredTime())
                 .defects(defectDtos)
+                .summaryText(payload.getSummaryText())
+                .recommendedAnalysisType(payload.getRecommendedAnalysisType())
+                .analysisFocus(payload.getAnalysisFocus())
+                .llmPromptHint(payload.getLlmPromptHint())
                 .build();
 
         // 5. Trigger Bedrock AI Analysis

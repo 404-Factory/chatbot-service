@@ -132,6 +132,26 @@ public class InternalAnomalyAnalysisController {
             sb.append("3. 인과 관계 설명 (예: 'Spin Speed 이상으로 인해 감광액 도포 두께인 PR_THICKNESS 불량이 발생했을 가능성이 매우 높습니다').\n");
             sb.append("4. 엔지니어가 취해야 할 후속 조치 권고 (예: 레시피 파라미터 조정 등).\n");
         }
+
+        if (org.springframework.util.StringUtils.hasText(request.getSummaryText())) {
+            sb.append("[공정 상황 요약]\n");
+            sb.append("- ").append(request.getSummaryText()).append("\n\n");
+        }
+        if (org.springframework.util.StringUtils.hasText(request.getRecommendedAnalysisType())) {
+            sb.append("[권장 분석 유형]\n");
+            sb.append("- ").append(request.getRecommendedAnalysisType()).append("\n\n");
+        }
+        if (request.getAnalysisFocus() != null && !request.getAnalysisFocus().isEmpty()) {
+            sb.append("[집중 분석 가이드라인]\n");
+            for (String focus : request.getAnalysisFocus()) {
+                sb.append("  * ").append(focus).append("\n");
+            }
+            sb.append("\n");
+        }
+        if (org.springframework.util.StringUtils.hasText(request.getLlmPromptHint())) {
+            sb.append("[작성 힌트 및 권장 조치 가이드]\n");
+            sb.append("- ").append(request.getLlmPromptHint()).append("\n\n");
+        }
         
         sb.append("\n[출력 형식 제한]\n");
         sb.append("- 한국어로 명확하고 전문성 있는 엔지니어링 리포트 형식으로 작성해라.\n");

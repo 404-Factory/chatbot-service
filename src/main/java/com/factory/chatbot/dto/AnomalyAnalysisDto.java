@@ -23,6 +23,10 @@ public class AnomalyAnalysisDto {
         private String detectionReason;
         private Instant occurredTime;
         private List<DefectDto> defects;
+        private String summaryText;
+        private String recommendedAnalysisType;
+        private List<String> analysisFocus;
+        private String llmPromptHint;
     }
 
     @Getter
