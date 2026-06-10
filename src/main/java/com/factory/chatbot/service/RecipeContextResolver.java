@@ -241,13 +241,13 @@ public class RecipeContextResolver {
 
     private static final String LATEST_DEFECT_TYPE_QUERY = """
             SELECT d.defect_type
-            FROM defect_info d
+            FROM defects d
             JOIN lot_info l
                 ON l.lot_id = d.lot_id
             WHERE CAST(l.equipment_id AS CHAR) = :equipmentId
                 AND (:processId IS NULL OR CAST(l.process_id AS CHAR) = :processId)
                 AND (:productId IS NULL OR CAST(l.product_id AS CHAR) = :productId)
-            ORDER BY d.defect_id DESC
+            ORDER BY d.id DESC
             LIMIT 1
             """;
 

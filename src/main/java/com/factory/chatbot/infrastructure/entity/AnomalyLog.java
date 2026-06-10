@@ -3,7 +3,7 @@ package com.factory.chatbot.infrastructure.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Entity
 @Table(name = "anomalies") // 실제 DB 테이블명 매핑
@@ -13,8 +13,8 @@ public class AnomalyLog {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "log_id")
-    private Long logId;
+    @Column(name = "id")
+    private Long id;
 
     @Column(name = "equipment_id")
     private Long equipmentId;
@@ -28,7 +28,7 @@ public class AnomalyLog {
     private String severity;
 
     @Column(name = "occurred_time")
-    private LocalDateTime occurredTime;
+    private Instant occurredTime;
 
     @Column(name = "detection_reason")
     private String detectionReason;

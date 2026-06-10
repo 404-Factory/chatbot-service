@@ -5,19 +5,19 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "equipment_info")
+@Table(name = "equipments")
 @Getter
 @NoArgsConstructor
 public class EquipmentInfo {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "equipment_id")
-    private Long equipmentId;
+    @Column(name = "id")
+    private Long id;
 
     @Column(name = "process_id")
     private Long processId;
 
-    @Column(name = "equipment_name")
-    private String equipmentName;
+    @Column(name = "name")
+    private String name;
 }

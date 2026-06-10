@@ -9,6 +9,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -43,7 +44,7 @@ class MainInsightServiceTest {
 
     private AnomalyLog createAnomalyLog(Long logId, Long eqId, String param, String rule, String severity) throws Exception {
         AnomalyLog log = new AnomalyLog();
-        setPrivateField(log, "logId", logId);
+        setPrivateField(log, "id", logId);
         setPrivateField(log, "equipmentId", eqId);
         setPrivateField(log, "recipeParameter", param);
         setPrivateField(log, "ruleName", rule);
@@ -51,7 +52,7 @@ class MainInsightServiceTest {
         return log;
     }
 
-    private DefectInfo createDefectInfo(Long id, String type, String processName, LocalDateTime occurredTime, Long eqId) throws Exception {
+    private DefectInfo createDefectInfo(Long id, String type, String processName, Instant occurredTime, Long eqId) throws Exception {
         DefectInfo defect = new DefectInfo();
         setPrivateField(defect, "id", id);
         setPrivateField(defect, "defectType", type);
@@ -63,8 +64,8 @@ class MainInsightServiceTest {
 
     private EquipmentInfo createEquipmentInfo(Long eqId, String name, Long processId) throws Exception {
         EquipmentInfo eq = new EquipmentInfo();
-        setPrivateField(eq, "equipmentId", eqId);
-        setPrivateField(eq, "equipmentName", name);
+        setPrivateField(eq, "id", eqId);
+        setPrivateField(eq, "name", name);
         setPrivateField(eq, "processId", processId);
         return eq;
     }
@@ -146,7 +147,7 @@ class MainInsightServiceTest {
                 createAnomalyLog(11L, 1L, "Pressure", "Rule 2", "CRITICAL")
         );
         List<DefectInfo> defects = Arrays.asList(
-                createDefectInfo(20L, "Scratch", "CLEANING", LocalDateTime.now(), 1L)
+                createDefectInfo(20L, "Scratch", "CLEANING", Instant.now(), 1L)
         );
 
         when(chatRoomRepository.existsById(roomId)).thenReturn(true);

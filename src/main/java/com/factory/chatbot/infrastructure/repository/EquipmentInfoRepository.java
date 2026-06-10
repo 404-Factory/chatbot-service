@@ -7,5 +7,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface EquipmentInfoRepository extends JpaRepository<EquipmentInfo, Long> {
-    Optional<EquipmentInfo> findByEquipmentName(String equipmentName);
+    Optional<EquipmentInfo> findByName(String name);
 }

@@ -81,11 +81,11 @@ public class RecipeHistoryProvider {
                 CAST(mr.process_id AS CHAR) AS process_id,
                 CAST(mr.product_id AS CHAR) AS product_id,
                 :defectType AS defect_type,
-                COUNT(DISTINCT d.defect_id) AS defect_count,
+                COUNT(DISTINCT d.id) AS defect_count,
                 COALESCE(SUM(DISTINCT l.product_qty), 0) AS product_quantity,
                 CASE
                     WHEN COALESCE(SUM(DISTINCT l.product_qty), 0) > 0
-                        THEN ROUND((COUNT(DISTINCT d.defect_id) / COALESCE(SUM(DISTINCT l.product_qty), 0)) * 100, 4)
+                        THEN ROUND((COUNT(DISTINCT d.id) / COALESCE(SUM(DISTINCT l.product_qty), 0)) * 100, 4)
                     ELSE 0
                 END AS defect_rate
             FROM equipment_recipe er
@@ -96,7 +96,7 @@ public class RecipeHistoryProvider {
                 AND l.process_id = mr.process_id
                 AND l.product_id = mr.product_id
                 AND l.master_recipe_id = mr.master_recipe_id
-            LEFT JOIN defect_info d
+            LEFT JOIN defects d
                 ON d.lot_id = l.lot_id
                 AND d.defect_type = :defectType
             WHERE CAST(er.equipment_id AS CHAR) = :equipmentId

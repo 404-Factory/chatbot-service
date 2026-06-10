@@ -3,7 +3,7 @@ package com.factory.chatbot.infrastructure.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Entity
 @Table(name = "defects")
@@ -23,10 +23,10 @@ public class DefectInfo {
     private String defectCode;
 
     @Column(name = "occurred_time")
-    private LocalDateTime occurredTime;
+    private Instant occurredTime;
 
     @Column(name = "detected_time")
-    private LocalDateTime detectedTime;
+    private Instant detectedTime;
 
     @Column(name = "cause_equipment_id")
     private Long causeEquipmentId;

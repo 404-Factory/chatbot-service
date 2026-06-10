@@ -133,13 +133,13 @@ public class MainInsightServiceImpl implements MainInsightService {
             promptBuilder.append("[이상 로그 데이터]\n");
             for (AnomalyLog log : logs) {
                 promptBuilder.append(String.format("- 로그 ID: %d | 점검 항목: %s | 탐지된 룰: %s | 심각도: %s\n",
-                    log.getLogId(), log.getRecipeParameter(), log.getRuleName(), log.getSeverity()));
+                    log.getId(), log.getRecipeParameter(), log.getRuleName(), log.getSeverity()));
             }
 
             Optional<EquipmentInfo> eqInfoOpt = equipmentInfoRepository.findById(equipmentId.longValue());
             if (eqInfoOpt.isPresent()) {
                 EquipmentInfo eqInfo = eqInfoOpt.get();
-                List<DefectInfo> defects = defectInfoRepository.findByCauseEquipmentIdOrderByOccurredTimeDesc(eqInfo.getEquipmentId());
+                List<DefectInfo> defects = defectInfoRepository.findByCauseEquipmentIdOrderByOccurredTimeDesc(eqInfo.getId());
                 if (!defects.isEmpty()) {
                     promptBuilder.append("\n[불량 현황 데이터]\n");
                     int count = 0;
