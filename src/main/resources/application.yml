@@ -5,6 +5,16 @@ spring:
   application:
     name: chatbot_service
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: chatbot-consumer-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
     url: ${DB_URL:jdbc:mariadb://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:chatbot_db}?sslMode=trust}
@@ -23,6 +33,15 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
+sigma:
+  event:
+    consumer:
+      topics:
+        - "management-event"
+      groupId: "chatbot-consumer-group"
+      subscription:
+        - "AnalysisRequested"
 
 aws:
   region: ap-northeast-2
