@@ -126,11 +126,10 @@ public class InternalAnomalyAnalysisController {
             }
             sb.append("\n[작성 지침 - 연관 불량이 존재하는 경우]\n");
             sb.append("이상 감지 이후 실제로 연관된 불량이 발생한 상황입니다. 위의 [센서-불량 규칙 매핑] 정보와 비교하여 실제로 감지된 불량 유형(예: PR_THICKNESS, CD_FAIL 등)이 현재 이상 발생 센서(예: Spin Speed, PEB 등) 및 룰과 인과 관계가 있는지 규명하십시오.\n");
-            sb.append("엔지니어에게 다음과 같은 흐름으로 Insight를 한국어로 명확히 보고서 형태로 제시해주십시오:\n");
-            sb.append("1. 이상 발생 센서와 연관되어 발생한 실제 불량 목록 및 연관도 분석 결과.\n");
-            sb.append("2. 이상 로그와 실제 연관이 있는 불량들을 명확히 언급.\n");
-            sb.append("3. 인과 관계 설명 (예: 'Spin Speed 이상으로 인해 감광액 도포 두께인 PR_THICKNESS 불량이 발생했을 가능성이 매우 높습니다').\n");
-            sb.append("4. 엔지니어가 취해야 할 후속 조치 권고 (예: 레시피 파라미터 조정 등).\n");
+            sb.append("엔지니어에게 보고서 형태로 Insight를 한국어로 명확하게 제시해 주시되, 다음 지침을 지키십시오:\n");
+            sb.append("- 개별 불량 Lot ID나 개별 불량 목록의 단순 나열 등 Lot 자체에 대한 구체적인 언급은 최소화하십시오.\n");
+            sb.append("- 이상 센서와 실제 발생한 불량 현상 간의 인과 관계 설명에 집중하십시오.\n");
+            sb.append("- 엔지니어가 즉각 취해야 할 설비 점검 및 레시피 조치 권고 사항(예: 레시피 파라미터 미세 조정 등)에 더 큰 비중을 두고 구체적으로 서술하십시오.\n");
         }
 
         if (org.springframework.util.StringUtils.hasText(request.getSummaryText())) {
