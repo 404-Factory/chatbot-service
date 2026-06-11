@@ -15,6 +15,7 @@ java {
 }
 
 repositories {
+	mavenLocal()
 	mavenCentral()
 }
 
@@ -25,6 +26,9 @@ dependencies {
 	implementation 'com.factory.common:kafka:1.0.7'
 	implementation 'com.factory.common:inbox-jpa:1.0.7'
 	implementation 'com.factory.common:outbox-jpa:1.0.7'
+
+	// Kafka
+	implementation 'org.springframework.kafka:spring-kafka'
 
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-web'

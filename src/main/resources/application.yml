@@ -70,7 +70,7 @@ chatbot:
     http-connection-timeout-seconds: ${BEDROCK_AGENT_HTTP_CONNECTION_TIMEOUT_SECONDS:10}
   cors:
     allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:*}
-  db:
-    management-name: ${MANAGEMENT_DB_NAME:management_db}
+  services:
+    management-url: ${MANAGEMENT_SERVICE_URL:http://localhost:8080}
 
 kind: Application
