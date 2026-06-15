@@ -5,10 +5,8 @@ import com.factory.chatbot.dto.AnomalyAnalysisDto;
 import com.factory.chatbot.event.payload.AnalysisCompletedPayload;
 import com.factory.chatbot.event.payload.AnalysisRequestedPayload;
 import com.factory.chatbot.event.type.AnalysisEventType;
-import com.factory.chatbot.infrastructure.entity.AnomalyLog;
 import com.factory.chatbot.infrastructure.entity.DefectInfo;
 import com.factory.chatbot.infrastructure.entity.EquipmentInfo;
-import com.factory.chatbot.infrastructure.repository.AnomalyLogRepository;
 import com.factory.chatbot.infrastructure.repository.DefectInfoRepository;
 import com.factory.chatbot.infrastructure.repository.EquipmentInfoRepository;
 import com.factory.common.event.domain.Event;
@@ -22,6 +20,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 
 @Slf4j
@@ -29,7 +28,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AnalysisRequestedHandler implements EventHandler<AnalysisRequestedPayload> {
 
-    private final AnomalyLogRepository anomalyLogRepository;
     private final EquipmentInfoRepository equipmentInfoRepository;
     private final DefectInfoRepository defectInfoRepository;
     private final InternalAnomalyAnalysisController internalAnomalyAnalysisController;
@@ -50,41 +48,40 @@ public class AnalysisRequestedHandler implements EventHandler<AnalysisRequestedP
         Long anomalyId = payload.getAnomalyId();
         log.info("Processing AnalysisRequested event for anomalyId={}", anomalyId);
 
-        // 1. Retrieve Anomaly Log
-        AnomalyLog anomalyLog = anomalyLogRepository.findById(anomalyId).orElse(null);
-        if (anomalyLog == null) {
-            log.warn("AnomalyLog not found for id={}. Skipping analysis.", anomalyId);
-            return;
+        // 1. Retrieve Equipment Info (optional - use payload data as fallback)
+        EquipmentInfo equipmentInfo = null;
+        if (payload.getEquipmentId() != null) {
+            equipmentInfo = equipmentInfoRepository.findById(payload.getEquipmentId()).orElse(null);
+        }
+        String equipmentName = equipmentInfo != null ? equipmentInfo.getName() : "알 수 없는 설비";
+
+        // 2. Retrieve Related Defects (within 30 minutes after first detected time)
+        List<AnomalyAnalysisDto.DefectDto> defectDtos = Collections.emptyList();
+        Instant occurredTime = payload.getFirstDetectedAt();
+        if (occurredTime != null) {
+            Instant end = occurredTime.plusSeconds(1800);
+            List<DefectInfo> defects = defectInfoRepository
+                    .findByCauseEquipmentIdAndOccurredTimeBetweenOrderByOccurredTimeDesc(
+                            payload.getEquipmentId(), occurredTime, end);
+            defectDtos = defects.stream()
+                    .map(d -> new AnomalyAnalysisDto.DefectDto(
+                            d.getLotId(),
+                            d.getDefectType(),
+                            d.getDefectCode(),
+                            d.getOccurredTime(),
+                            d.getDetectedTime()
+                    ))
+                    .toList();
         }
 
-        // 2. Retrieve Equipment Info
-        EquipmentInfo equipmentInfo = equipmentInfoRepository.findById(anomalyLog.getEquipmentId()).orElse(null);
-
-        // 3. Retrieve Related Defects (within 30 minutes after anomaly occurred time)
-        Instant start = anomalyLog.getOccurredTime();
-        Instant end = start.plusSeconds(1800);
-        List<DefectInfo> defects = defectInfoRepository
-                .findByCauseEquipmentIdAndOccurredTimeBetweenOrderByOccurredTimeDesc(
-                        anomalyLog.getEquipmentId(), start, end);
-
-        // 4. Construct Request DTO for AI analysis
-        List<AnomalyAnalysisDto.DefectDto> defectDtos = defects.stream()
-                .map(d -> new AnomalyAnalysisDto.DefectDto(
-                        d.getLotId(),
-                        d.getDefectType(),
-                        d.getDefectCode(),
-                        d.getOccurredTime(),
-                        d.getDetectedTime()
-                ))
-                .toList();
-
+        // 3. Construct Request DTO for AI analysis using payload data
         AnomalyAnalysisDto.Request request = AnomalyAnalysisDto.Request.builder()
-                .equipmentName(equipmentInfo != null ? equipmentInfo.getName() : "N/A")
-                .recipeParameter(anomalyLog.getRecipeParameter())
-                .ruleName(anomalyLog.getRuleName())
-                .anomalyType(anomalyLog.getAnomalyType())
-                .detectionReason(anomalyLog.getDetectionReason())
-                .occurredTime(anomalyLog.getOccurredTime())
+                .equipmentName(equipmentName)
+                .recipeParameter(payload.getRecipeParameter())
+                .ruleName(payload.getRuleName())
+                .anomalyType(payload.getAnomalyType())
+                .detectionReason(payload.getDetectionReason())
+                .occurredTime(occurredTime)
                 .defects(defectDtos)
                 .summaryText(payload.getSummaryText())
                 .recommendedAnalysisType(payload.getRecommendedAnalysisType())
@@ -92,7 +89,7 @@ public class AnalysisRequestedHandler implements EventHandler<AnalysisRequestedP
                 .llmPromptHint(payload.getLlmPromptHint())
                 .build();
 
-        // 5. Trigger Bedrock AI Analysis
+        // 4. Trigger Bedrock AI Analysis
         String status = "SUCCESS";
         String summary = "";
         try {
@@ -107,7 +104,7 @@ public class AnalysisRequestedHandler implements EventHandler<AnalysisRequestedP
             summary = "AI 분석 리포트 생성 실패: " + e.getMessage();
         }
 
-        // 6. Publish AnalysisCompleted event via Transactional Outbox
+        // 5. Publish AnalysisCompleted event via Transactional Outbox
         AnalysisCompletedPayload completedPayload = AnalysisCompletedPayload.builder()
                 .anomalyId(anomalyId)
                 .status(status)
