@@ -45,6 +45,7 @@ public class AnalysisRequestedHandler implements EventHandler<AnalysisRequestedP
     @Transactional
     @InboxProcessed
     public void process(Event<AnalysisRequestedPayload> event) {
+        log.info("AnalysisRequestHandler process executed");
         AnalysisRequestedPayload payload = event.getPayload();
         Long anomalyId = payload.getAnomalyId();
         log.info("Processing AnalysisRequested event for anomalyId={}", anomalyId);

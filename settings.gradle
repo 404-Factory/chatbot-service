@@ -21,8 +21,8 @@ pluginManagement {
     }
 
     plugins {
-        id "com.factory.java-library-conventions" version "1.0.5"
-        id "com.factory.spring-library-conventions" version "1.0.5"
+        id "com.factory.spring-application-conventions" version "1.0.5"
+        id "com.factory.maven-consumer-conventions" version "1.0.5"
     }
 }
 

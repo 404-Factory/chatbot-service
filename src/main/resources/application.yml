@@ -1,6 +1,14 @@
 server:
   port: 8085
 
+logging:
+  file:
+    name: C:/temp/chatbot-service.log
+  level:
+    com.factory: DEBUG
+    root: INFO
+    com.factory.chatbot.event.handler: INFO
+
 spring:
   application:
     name: chatbot_service
@@ -45,7 +53,7 @@ spring:
 sigma:
   event:
     consumer:
-      topics: "management-event"
+      topics: "Anomaly.event"
       groupId: "chatbot-consumer-group"
       subscription:
         - "AnalysisRequested"
