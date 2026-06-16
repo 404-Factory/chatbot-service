@@ -53,8 +53,7 @@ spring:
 sigma:
   event:
     consumer:
-      topics:
-        - "Anomaly.event"
+      topics: "Anomaly.event"
       groupId: "chatbot-consumer-group"
       subscription:
         - "AnalysisRequested"
