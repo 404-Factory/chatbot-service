@@ -1,6 +1,7 @@
 package com.factory.chatbot.event.payload;
 
 import com.factory.common.event.domain.EventPayload;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -21,6 +22,6 @@ public class AnalysisRequestedPayload implements EventPayload {
     private Instant firstDetectedAt;
     private String summaryText;
     private String recommendedAnalysisType;
-    private java.util.List<String> analysisFocus;
+    private List<String> analysisFocus;
     private String llmPromptHint;
 }

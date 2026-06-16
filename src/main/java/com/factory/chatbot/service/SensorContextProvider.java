@@ -345,6 +345,7 @@ public class SensorContextProvider {
                 .orElse(null);
     }
 
+    @SuppressWarnings("deprecated")
     private Optional<Double> directNumberValue(JsonNode node, Set<String> normalizedAliases) {
         if (!node.isObject()) {
             return Optional.empty();

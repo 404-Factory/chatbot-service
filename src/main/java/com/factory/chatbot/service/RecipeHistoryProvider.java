@@ -23,6 +23,7 @@ public class RecipeHistoryProvider {
         this.managementServiceUrl = managementServiceUrl;
     }
 
+    @SuppressWarnings("deprecated")
     public List<RecipeHistoryCase> findRelevantHistories(
             String equipmentId,
             String processId,
