@@ -114,55 +114,62 @@ public class BedrockAgentService {
         
         // If it's a normal report containing the data timestamp, keep it as-is (but check/prepend fallback warning if applicable)
         if (response.contains("데이터 기준 시각:")) {
-            boolean hasWarning = response.contains("금일 날짜 기준으로 저장된 데이터가 없어");
-            if (!hasWarning) {
-                // Determine if user specified a date in userPrompt
-                boolean userSpecifiedDate = false;
-                if (userPrompt != null) {
-                    String p = userPrompt.replaceAll("\\s+", "");
-                    boolean hasYear = p.matches(".*\\d{4}년.*") || p.matches(".*\\d{4}-\\d{2}-\\d{2}.*") || p.matches(".*\\d{4}/\\d{2}/\\d{2}.*");
-                    boolean hasMonthDay = p.matches(".*\\d{1,2}월\\d{1,2}일.*") || p.matches(".*\\d{1,2}/\\d{1,2}.*") || p.matches(".*\\d{1,2}-\\d{1,2}.*");
-                    if (hasYear || hasMonthDay) {
-                        userSpecifiedDate = true;
-                    }
-                }
-                
-                if (!userSpecifiedDate) {
-                    // Extract date from "데이터 기준 시각: YYYY년 MM월 DD일"
-                    java.util.regex.Pattern datePattern = java.util.regex.Pattern.compile("데이터 기준 시각:\\s*(\\d{4})년\\s*(\\d{1,2})월\\s*(\\d{1,2})일");
-                    java.util.regex.Matcher matcher = datePattern.matcher(response);
-                    boolean isToday = false;
-                    if (matcher.find()) {
+            // 1. Extract requested date from userPrompt (e.g. YYYY-MM-DD or YYYY년 MM월 DD일)
+            String requestedDate = null;
+            if (userPrompt != null) {
+                java.util.regex.Pattern p1 = java.util.regex.Pattern.compile("(\\d{4})[-/](\\d{2})[-/](\\d{2})");
+                java.util.regex.Matcher m1 = p1.matcher(userPrompt);
+                if (m1.find()) {
+                    requestedDate = m1.group(1) + "-" + m1.group(2) + "-" + m1.group(3);
+                } else {
+                    java.util.regex.Pattern p2 = java.util.regex.Pattern.compile("(\\d{4})년\\s*(\\d{1,2})월\\s*(\\d{1,2})일");
+                    java.util.regex.Matcher m2 = p2.matcher(userPrompt);
+                    if (m2.find()) {
                         try {
-                            int year = Integer.parseInt(matcher.group(1));
-                            int month = Integer.parseInt(matcher.group(2));
-                            int day = Integer.parseInt(matcher.group(3));
-                            
-                            java.time.LocalDate today = java.time.LocalDate.now();
-                            isToday = (year == today.getYear() && month == today.getMonthValue() && day == today.getDayOfMonth())
-                                      || (year == 2026 && month == 6 && day == 2);
+                            String y = m2.group(1);
+                            String m = String.format("%02d", Integer.parseInt(m2.group(2)));
+                            String d = String.format("%02d", Integer.parseInt(m2.group(3)));
+                            requestedDate = y + "-" + m + "-" + d;
                         } catch (Exception e) {
                             // ignore
                         }
-                    } else {
-                        // try ISO pattern
-                        java.util.regex.Pattern isoPattern = java.util.regex.Pattern.compile("데이터 기준 시각:\\s*(\\d{4})-(\\d{2})-(\\d{2})");
-                        java.util.regex.Matcher isoMatcher = isoPattern.matcher(response);
-                        if (isoMatcher.find()) {
-                            try {
-                                int year = Integer.parseInt(isoMatcher.group(1));
-                                int month = Integer.parseInt(isoMatcher.group(2));
-                                int day = Integer.parseInt(isoMatcher.group(3));
-                                
-                                java.time.LocalDate today = java.time.LocalDate.now();
-                                isToday = (year == today.getYear() && month == today.getMonthValue() && day == today.getDayOfMonth())
-                                          || (year == 2026 && month == 6 && day == 2);
-                            } catch (Exception e) {
-                                // ignore
-                            }
-                        }
                     }
-                    
+                }
+            }
+
+            // 2. Extract actual date from response
+            String actualDate = null;
+            java.util.regex.Pattern datePattern = java.util.regex.Pattern.compile("데이터 기준 시각:\\s*(\\d{4})년\\s*(\\d{1,2})월\\s*(\\d{1,2})일");
+            java.util.regex.Matcher matcher = datePattern.matcher(response);
+            if (matcher.find()) {
+                try {
+                    String y = matcher.group(1);
+                    String m = String.format("%02d", Integer.parseInt(matcher.group(2)));
+                    String d = String.format("%02d", Integer.parseInt(matcher.group(3)));
+                    actualDate = y + "-" + m + "-" + d;
+                } catch (Exception e) {
+                    // ignore
+                }
+            } else {
+                java.util.regex.Pattern isoPattern = java.util.regex.Pattern.compile("데이터 기준 시각:\\s*(\\d{4})-(\\d{2})-(\\d{2})");
+                java.util.regex.Matcher isoMatcher = isoPattern.matcher(response);
+                if (isoMatcher.find()) {
+                    actualDate = isoMatcher.group(1) + "-" + isoMatcher.group(2) + "-" + isoMatcher.group(3);
+                }
+            }
+
+            // 3. Prepend appropriate warning
+            boolean hasWarning = response.contains("데이터가 없어") || response.contains("최신 데이터를 기반으로");
+            if (!hasWarning && actualDate != null) {
+                if (requestedDate != null) {
+                    if (!requestedDate.equals(actualDate)) {
+                        response = "⚠️ 요청하신 날짜(" + requestedDate + ")의 데이터가 없습니다. 대신 저장소에 등록된 가장 최근 날짜(" + actualDate + ") 데이터를 기반으로 분석을 진행합니다.\n\n" + response.trim();
+                    }
+                } else {
+                    // Check if actualDate is today (or system default today 2026-06-02)
+                    java.time.LocalDate today = java.time.LocalDate.now();
+                    String todayStr = today.toString();
+                    boolean isToday = todayStr.equals(actualDate) || "2026-06-02".equals(actualDate);
                     if (!isToday) {
                         response = "⚠️ 금일 날짜 기준으로 저장된 데이터가 없어 저장소에 등록된 최신 데이터를 기반으로 출력하겠습니다.\n\n" + response.trim();
                     }
