@@ -139,15 +139,12 @@ public class RecipeContextResolver {
 
         String sql = """
                 SELECT d.defect_type
-                FROM %s.defects d
-                JOIN %s.lots l
-                    ON l.id = d.lot_id
-                WHERE CAST(l.equipment_id AS CHAR) = :equipmentId
-                    AND (:processId IS NULL OR CAST(l.process_id AS CHAR) = :processId)
-                    AND (:productId IS NULL OR CAST(l.product_id AS CHAR) = :productId)
+                FROM anomaly_db.defects d
+                WHERE CAST(d.cause_equipment_id AS CHAR) = :equipmentId
+                    AND (:processId IS NULL OR CAST(d.cause_process_id AS CHAR) = :processId)
                 ORDER BY d.id DESC
                 LIMIT 1
-                """.formatted(mgmtDb, mgmtDb);
+                """;
 
         try {
             return Optional.ofNullable(jdbcTemplate.queryForObject(sql, params, String.class));

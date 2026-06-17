@@ -61,7 +61,7 @@ public class RecipeHistoryProvider {
                     AND l.process_id = mr.process_id
                     AND l.product_id = mr.product_id
                     AND l.master_recipe_id = mr.id
-                LEFT JOIN %s.defects d
+                LEFT JOIN anomaly_db.defects d
                     ON d.lot_id = l.id
                     AND d.defect_type = :defectType
                 WHERE CAST(er.equipment_id AS CHAR) = :equipmentId
