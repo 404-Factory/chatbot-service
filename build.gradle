@@ -13,9 +13,6 @@ dependencies {
 	implementation 'com.factory.common:inbox-jpa:1.1.0'
 	implementation 'com.factory.common:outbox-jpa:1.1.0'
 
-	// Kafka
-	implementation 'org.springframework.kafka:spring-kafka'
-
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
