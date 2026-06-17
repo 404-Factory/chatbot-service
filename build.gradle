@@ -1,23 +1,18 @@
 plugins {
-	id 'java'
-	id 'org.springframework.boot' version '3.5.14'
-	id 'io.spring.dependency-management' version '1.1.7'
+	id 'com.factory.spring-application-conventions'
+	id 'com.factory.maven-consumer-conventions'
 }
 
-group = 'com.factory'
-version = '0.0.1-SNAPSHOT'
-
-java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(17)
-	}
-}
-
-repositories {
-	mavenCentral()
-}
+version = '1.0.0'
 
 dependencies {
+	// common modules
+	implementation 'com.factory.common:contract:1.1.0'
+	implementation 'com.factory.common:event:1.1.0'
+	implementation 'com.factory.common:kafka:1.1.0'
+	implementation 'com.factory.common:inbox-jpa:1.1.0'
+	implementation 'com.factory.common:outbox-jpa:1.1.0'
+
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
@@ -32,6 +27,7 @@ dependencies {
 	testImplementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter-test:3.0.5'
 	testCompileOnly 'org.projectlombok:lombok'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	testRuntimeOnly 'com.h2database:h2'
 	testAnnotationProcessor 'org.projectlombok:lombok'
 
 
@@ -40,9 +36,6 @@ dependencies {
 	implementation 'software.amazon.awssdk:s3:2.26.27'
 	implementation 'software.amazon.awssdk:netty-nio-client:2.26.27'
 	implementation 'me.paulschwarz:spring-dotenv:4.0.0'
-
-
-
 }
 
 tasks.named('test') {
