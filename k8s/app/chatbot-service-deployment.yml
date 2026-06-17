@@ -36,6 +36,8 @@ spec:
               value: "2"
             - name: DB_MIN_IDLE
               value: "1"
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "sigma-kafka-kafka-bootstrap.default.svc.cluster.local:9092"
             - name: S3_REALTIME_LOOKBACK_DAYS
               value: "3"
             - name: S3_ALLOW_BROAD_REALTIME_SCAN
