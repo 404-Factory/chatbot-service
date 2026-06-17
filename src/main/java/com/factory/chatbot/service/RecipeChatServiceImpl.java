@@ -113,7 +113,8 @@ public class RecipeChatServiceImpl implements RecipeChatService {
             }
         }
 
-        if (!hasAnomaly && backendRecommendation != null && "SUCCESS".equals(backendRecommendation.getStatus())) {
+        boolean isExplicitDefectRequest = StringUtils.hasText(recommendRequest.getDefectType());
+        if (!hasAnomaly && !isExplicitDefectRequest && backendRecommendation != null && "SUCCESS".equals(backendRecommendation.getStatus())) {
             String normalAnswer = "현재 분석 대상 설비의 모든 센서 가동 측정값(평균치)이 표준 사양 범위 내에서 **정상 가동 중**으로 감지되었습니다.\n"
                     + "따라서 추가적인 레시피 변동이나 보정치 조치(Adjust)는 불필요한 상태입니다.\n\n"
                     + "만약 설비의 가동 상태 트렌드 조회, RDBMS 이상 로그 분석, 또는 장기 이상 추이 분석을 추가로 희망하시는 경우 **[Insight AI로 상세 분석하기]** 기능으로 이동하여 편리하게 대화해 보세요.";
@@ -252,7 +253,7 @@ public class RecipeChatServiceImpl implements RecipeChatService {
         if (!StringUtils.hasText(extractedDefect) && StringUtils.hasText(message)) {
             String lower = message.toLowerCase();
             if (lower.contains("두께") || lower.contains("thickness")) {
-                extractedDefect = "Thickness";
+                extractedDefect = "THICKNESS";
             } else if (lower.contains("패턴") || lower.contains("pattern")) {
                 extractedDefect = "PATTERN";
             } else if (lower.contains("스크래치") || lower.contains("scratch")) {

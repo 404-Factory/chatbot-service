@@ -27,3 +27,10 @@ chatbot:
     agent-id: dummy-agent-id
     agent-alias-id: dummy-agent-alias-id
     model-id: dummy-model-id
+sigma:
+  event:
+    consumer:
+      topics: "Anomaly.event,Analysis.event"
+      groupId: "chatbot-consumer-group"
+      subscription:
+        - "AnalysisRequested"

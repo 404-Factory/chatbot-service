@@ -34,7 +34,7 @@ import software.amazon.awssdk.services.s3.model.S3Object;
 public class SensorContextProvider {
 
     private static final Logger log = LoggerFactory.getLogger(SensorContextProvider.class);
-    private static final DateTimeFormatter REALTIME_DATE_FORMATTER = DateTimeFormatter.ofPattern("MM/dd");
+    private static final DateTimeFormatter REALTIME_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy/MM/dd");
     private static final String[] TEMPERATURE_ALIASES = {
             "temperature", "temp", "temperatureC", "temperatureCelsius", "temperatureValue",
             "chamberTemperature", "processTemperature", "bakeTemperature", "softBakeTemperature", "온도"

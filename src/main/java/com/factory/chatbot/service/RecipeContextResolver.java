@@ -47,7 +47,7 @@ public class RecipeContextResolver {
         String defectType = firstText(request.getDefectType(), findLatestDefectType(request.getEquipmentId(), processId, productId).orElse(null));
         if (!StringUtils.hasText(defectType)) {
             String eqpId = request.getEquipmentId();
-            if ("1".equals(eqpId) || "2".equals(eqpId)) defectType = "THICKNESS_NON_UNIFORM";
+            if ("1".equals(eqpId) || "2".equals(eqpId)) defectType = "THICKNESS";
             else if ("3".equals(eqpId)) defectType = "CD";
             else if ("4".equals(eqpId)) defectType = "OVER_EXPOSURE";
             else if ("5".equals(eqpId)) defectType = "UNDER_EXPOSURE";
