@@ -26,7 +26,7 @@ spec:
       serviceAccountName: chatbot-sa
       containers:
         - name: chatbot-service
-          image: 310095858382.dkr.ecr.ap-northeast-2.amazonaws.com/chatbot-service:v9
+          image: 310095858382.dkr.ecr.ap-northeast-2.amazonaws.com/chatbot-service:v10
           ports:
             - containerPort: 8085
           envFrom:

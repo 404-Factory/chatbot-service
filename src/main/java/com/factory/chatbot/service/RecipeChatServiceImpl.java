@@ -243,10 +243,34 @@ public class RecipeChatServiceImpl implements RecipeChatService {
         RecipeRecommendDto.Request recommendRequest = new RecipeRecommendDto.Request();
         recommendRequest.setOperatorQuestion(message);
         recommendRequest.setEquipmentId(resolveEquipmentIdFromMessage(message));
-        recommendRequest.setDefectType(firstText(
+        
+        String extractedDefect = firstText(
                 extractFirstMatch(message, DEFECT_TYPE_AFTER_PATTERN),
                 extractFirstMatch(message, DEFECT_TYPE_BEFORE_PATTERN)
-        ));
+        );
+
+        if (!StringUtils.hasText(extractedDefect) && StringUtils.hasText(message)) {
+            String lower = message.toLowerCase();
+            if (lower.contains("두께") || lower.contains("thickness")) {
+                extractedDefect = "Thickness";
+            } else if (lower.contains("패턴") || lower.contains("pattern")) {
+                extractedDefect = "PATTERN";
+            } else if (lower.contains("스크래치") || lower.contains("scratch")) {
+                extractedDefect = "Scratch";
+            } else if (lower.contains("파티클") || lower.contains("particle")) {
+                extractedDefect = "Particle";
+            } else if (lower.contains("잔사") || lower.contains("residue")) {
+                extractedDefect = "Residue";
+            } else if (lower.contains("기포") || lower.contains("bubble")) {
+                extractedDefect = "Bubble";
+            } else if (lower.contains("오버레이") || lower.contains("overlay")) {
+                extractedDefect = "Overlay";
+            } else if (lower.contains("cd")) {
+                extractedDefect = "CD";
+            }
+        }
+
+        recommendRequest.setDefectType(extractedDefect);
         return recommendRequest;
     }
 
