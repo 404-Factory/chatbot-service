@@ -32,7 +32,7 @@ public class ChatbotKafkaConsumer extends CommonKafkaConsumer {
 
     @Override
     @KafkaListener(
-            topics = "${sigma.event.consumer.topics}",
+            topics = {"Anomaly.event", "Analysis.event"},
             groupId = "${sigma.event.consumer.groupId}"
     )
     public void consume(ConsumerRecord<String, String> record) {
